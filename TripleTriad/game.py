@@ -5,17 +5,25 @@ Created on Aug 30, 2017
 '''
 import numpy as np
 import warnings
+from game_helper import *
+import path
 
 
 # Left-hand side player and Right-hand side player 
 LEFT_PLAYER = -1
-TIE = 0
+NO_ONE = 0
 RIGHT_PLAYER = 1
 
 # the number of hards for each player at the beginning of the game, and the size
 # of the board. These should not be changed.
 START_HANDS = 5
 BOARD_SIZE = 3
+
+
+# the default cardset for both players
+DEFAULT_PATH = ""
+DEFAULT_LEFT_CARDS_FILE = "cards.csv"
+DEFAULT_RIGHT_CARDS_FILE = "cards.csv"
 
 # Check the detail of rules at http://ffxivtriad.com/rules. Right now only the all open rule is implemented
 rule_list = [
@@ -41,20 +49,31 @@ class GameState(object):
     '''
 
 
-    def __init__(self, left_cards=[], right_cards=[], current_player=np.random.choice([LEFT_PLAYER, RIGHT_PLAYER]), rules=['all_open']):
+    def __init__(self, left_cards=[], right_cards=[], path=DEFAULT_PATH,
+                 left_file=DEFAULT_LEFT_CARDS_FILE, right_file=DEFAULT_RIGHT_CARDS_FILE,
+                 current_player=np.random.choice([LEFT_PLAYER, RIGHT_PLAYER]), rules=['all_open']):
         self.rules = rules
         self.current_player = current_player
         self.left_cards = left_cards
         self.right_cards = right_cards
+        self.path = path
+        self.left_file = left_file
+        self.right_file = right_file
         
         # Initialize the board
         self.board = [None] * (BOARD_SIZE * BOARD_SIZE)
         
+        # If no cards were given, randomly choose 5 from the card set. Also set their owner to be left player
         if len(left_cards) == 0:
-            load_cards(self.left_cards)
+            left_cards = np.random.choice(load_cards_from_file(self.path, self.left_file), START_HANDS)
+        for card in left_cards:
+            card.owner = LEFT_PLAYER
         
+        # Same as above but for right player
         if len(right_cards) == 0:
-            load_cards(self.right_cards)
+            right_cards = np.random.choice(load_cards_from_file(self.path, self.right_file), START_HANDS)
+        for card in right_cards:
+            card.owner = RIGHT_PLAYER
             
         # Check if all the rules are valid
         for rule in self.rules:
@@ -119,7 +138,7 @@ class GameState(object):
             left_cards = len(filter(lambda l: l is not None and l.owner == LEFT_PLAYER, self.board))
             right_cards = len(filter(lambda r: r is not None and r.owner == RIGHT_PLAYER, self.board))
             if left_cards == right_cards:
-                return TIE
+                return NO_ONE
             elif left_cards > right_cards:
                 return LEFT_PLAYER
             else:
@@ -161,16 +180,16 @@ class Card(object):
     Number: The numbers of a card shown on the top left corner. It is a 4-elements list on a clockwise [top, right, bottom, left]. Number ranges from 1 to 10 (10 is ace)
     Owner: the player that owns this card
     Visible: whether the opponent can see this card
-    On_hand: Whether this card is still in player's hand or is on the board
+    Name: the name of this card. Supposed to be unique.
     Rank: the rank of this card. If -1 it means this card is not classified
     Element: Only for special rules. Not implemented yet.
     '''
     
-    def __init__(self, numbers, owner, visible = False, on_hand = True, rank=-1,  element = -1):
+    def __init__(self, numbers, owner = NO_ONE, visible = False, name = "", rank = -1,  element = -1):
         self.numbers = numbers
         self.owner = owner
         self.visible = visible
-        self.on_hand = on_hand
+        self.name = name
         self.rank = rank
         self.element = element
         
@@ -186,5 +205,18 @@ class Card(object):
     def get_left(self):
         return self.numbers[3]
     
-    
+
+
+def load_cards_from_file(path, file_name):
+    card_list = []
+    with open(os.path.join(path,file_name), 'rb') as file:
+        cards = list(csv.reader(file))
+        for card in cards:
+            card_list.append( Card(
+                numbers = [card['top'], card['right'], card['bottom'], card['left']],
+                name = card['name'],
+                rank = card['rank'],
+                element = card['element']
+                ) )   
+    return card_list  
     
