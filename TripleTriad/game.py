@@ -59,6 +59,9 @@ class GameState(object):
         self.path = path
         self.left_file = left_file
         self.right_file = right_file
+        self.turn = 0
+        self.board_size = BOARD_SIZE
+        self.start_hands = START_HANDS
         
         # Initialize the board
         self.board = [None] * (BOARD_SIZE * BOARD_SIZE)
@@ -176,6 +179,7 @@ class GameState(object):
         
         self.flip_cards(card, neighbours)
         self.current_player = -1 * self.current_player
+        self.turn = self.turn + 1
         
     
     # Display the status of the board

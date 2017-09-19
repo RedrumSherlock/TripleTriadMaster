@@ -6,6 +6,16 @@ import copy
 class TestGame(unittest.TestCase):
     
     def test_fullgame(self):
+        game = GameState()
+        self.assertTrue(len(game.left_cards) == game.start_hands)
+        self.assertTrue(len(game.right_cards) == game.start_hands)
+        while(not game.is_end_of_game()):
+            move = random.choice(game.get_legal_moves())
+            card = random.choice(game.get_unplayed_cards())
+            game.play_round(card, *move)
+            game.print_board()
+        
+    def test_random_games(self):
         
         default_left_cards = load_cards_from_file("", "cards.csv")
         default_right_cards = load_cards_from_file("", "cards.csv")
@@ -19,13 +29,12 @@ class TestGame(unittest.TestCase):
                 card.reset()
                 
             game = GameState(left_cards = left_cards, right_cards = right_cards)
-            self.assertTrue(len(game.left_cards) == 5)
-            self.assertTrue(len(game.right_cards) == 5)
+            self.assertTrue(len(game.left_cards) == game.start_hands)
+            self.assertTrue(len(game.right_cards) == game.start_hands)
             while(not game.is_end_of_game()):
                 move = random.choice(game.get_legal_moves())
                 card = random.choice(game.get_unplayed_cards())
                 game.play_round(card, *move)
-                # game.print_board()
             
             self.assertTrue(game.get_winner() is not None)
             winner.append(game.get_winner())
