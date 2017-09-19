@@ -1,6 +1,6 @@
 import numpy as np
 from TripleTriad.feature import *
-from keras.models import Sequential, Model, model_from_json
+from keras.models import Sequential, Model, model_from_json, clone_model
 from keras.layers import convolutional, merge, Input, BatchNormalization, Dense
 from keras.layers.core import Activation, Flatten
 from keras.engine.topology import Layer
@@ -55,6 +55,15 @@ class NNPolicy():
         model.add(Flatten())
         network.add(Bias())
         network.add(Activation(self.params["output_activation"]))
+        network.set_weights()
+        
+    def clone(self):
+        new_policy = NNPolicy()
+        new_policy.params = self.params.copy()
+        new_policy.features = self.features.copy()
+        new_policy.model_save_path = self.model_save_path
+        new_policy.model = clone_model(self.model)
+        return new_policy
         
     def get_action(self, state):
         moves = state.get_legal_moves()
@@ -99,6 +108,7 @@ class NNPolicy():
         with open(model_load_path, 'r') as f:
             object_specs = json.load(f)
         model = model_from_json(object_specs['keras_model'], custom_objects={'Bias': Bias})
+        self.features = object_specs['feature_list']
         if 'weights_file' in object_specs:
             model.load_weights(object_specs['weights_file'])
         return model
