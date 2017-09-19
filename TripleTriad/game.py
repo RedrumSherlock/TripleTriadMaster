@@ -5,8 +5,8 @@ Created on Aug 30, 2017
 '''
 import numpy as np
 import warnings
+import random
 from game_helper import *
-import path
 
 
 # Left-hand side player and Right-hand side player 
@@ -64,20 +64,24 @@ class GameState(object):
         self.board = [None] * (BOARD_SIZE * BOARD_SIZE)
         
         # If no cards were given, randomly choose 5 from the card set. Also set their owner to be left player
-        if len(left_cards) == 0:
-            left_cards = np.random.choice(load_cards_from_file(self.path, self.left_file), START_HANDS)
-        for card in left_cards:
+        if len(self.left_cards) == 0:
+            self.left_cards = random.sample(load_cards_from_file(self.path, self.left_file), START_HANDS)
+        elif len(self.left_cards) != START_HANDS:
+            self.left_cards = random.sample(self.left_cards, START_HANDS)
+        for card in self.left_cards:
             card.owner = LEFT_PLAYER
         
         # Same as above but for right player
         if len(right_cards) == 0:
-            right_cards = np.random.choice(load_cards_from_file(self.path, self.right_file), START_HANDS)
-        for card in right_cards:
+            self.right_cards = random.sample(load_cards_from_file(self.path, self.right_file), START_HANDS)
+        elif len(self.right_cards) != START_HANDS:
+            self.right_cards = random.sample(self.right_cards, START_HANDS)
+        for card in self.right_cards:
             card.owner = RIGHT_PLAYER
             
         # Check if all the rules are valid
         for rule in self.rules:
-            if not rule in rule_list:
+            if rule not in rule_list:
                 warnings.warn("Rule %s is not valid. Ignoring this rule" % rule) 
         
         # Apply the rules here
@@ -88,30 +92,31 @@ class GameState(object):
                 card.visible = True
     
     def on_Board(self, x_pos, y_pos):
-        # The board is a 3x3 matrix, and the index ranges from 0 to 2 for both x(horizontal) and y(vertical)
+        # The board is a 3x3 matrix, and the index ranges from 0 to 2 for both x(horizontal, columns) and y(vertical, rows)
          return x_pos >= 0 and x_pos <= 2 and y_pos >= 0 and y_pos <= 2
      
     def get_card(self, x_pos, y_pos):
         # returns the card on the board. If out side of the board returns None
-        if on_Board(x_pos, y_pos):
+        if self.on_Board(x_pos, y_pos):
             return self.board[x_pos + y_pos * BOARD_SIZE]
         else:
             return None
     
-    def place_card(self, x_pos, y_pos, card):
+    def place_card(self, card, x_pos, y_pos):
         # Drop the card on the board based on the coordinates
-        if on_Board(x_pos, y_pos):
+        if self.on_Board(x_pos, y_pos):
             self.board[x_pos + y_pos * BOARD_SIZE] = card
+            card.on_board = True
         
     def get_neighbours(self, x_pos, y_pos):
         # Returns a list of cards placed on board for the x_pos, y_pos. The list
         # will always have 4 elements, following clockwise [top, right, bottom,
         # left]
         neighbours = []
-        neighbours.append(get_card(x_pos, y_pos - 1))
-        neighbours.append(get_card(x_pos + 1, y_pos))
-        neighbours.append(get_card(x_pos, y_pos + 1))
-        neighbours.append(get_card(x_pos - 1, y_pos))
+        neighbours.append(self.get_card(x_pos, y_pos - 1))
+        neighbours.append(self.get_card(x_pos + 1, y_pos))
+        neighbours.append(self.get_card(x_pos, y_pos + 1))
+        neighbours.append(self.get_card(x_pos - 1, y_pos))
         return neighbours
     
     
@@ -133,10 +138,13 @@ class GameState(object):
                 if i == 3 and card.get_left() > neighbours[i].get_right():
                     neighbours[i].owner = self.current_player
                     
+    def is_end_of_game(self):
+        return len(filter(lambda x: x is None, self.board)) == 0
+    
     def get_winner(self):
-        if len(filter(lambda x: x is None, self.board)) == 0:
-            left_cards = len(filter(lambda l: l is not None and l.owner == LEFT_PLAYER, self.board))
-            right_cards = len(filter(lambda r: r is not None and r.owner == RIGHT_PLAYER, self.board))
+        if self.is_end_of_game():
+            left_cards = len(filter(lambda l: l.owner == LEFT_PLAYER, self.left_cards + self.right_cards))
+            right_cards = START_HANDS * 2 - left_cards
             if left_cards == right_cards:
                 return NO_ONE
             elif left_cards > right_cards:
@@ -145,15 +153,29 @@ class GameState(object):
                 return RIGHT_PLAYER
         else:
             return None
-        
+    
+    def get_legal_moves(self):
+        moves = []
+        for i in range(len(self.board)):
+            if self.board[i] is None:
+                moves.append((i % BOARD_SIZE, int(np.floor(i/BOARD_SIZE))))
+        return moves
+    
+    def get_unplayed_cards(self):
+        cards = []
+        for card in (self.left_cards if self.current_player == LEFT_PLAYER else self.right_cards):
+            if not card.on_board:
+                cards.append(card) 
+        return cards
+       
     # Play a card at position [x_pos, y_pos]            
-    def play_round(self, x_pos, y_pos, card):
+    def play_round(self, card, x_pos, y_pos):
         card.owner = self.current_player
-        place_card(x_pos, y_pos, card)
-        neighbours = et_neighbours(x_pos, y_pos)
+        self.place_card(card, x_pos, y_pos)
+        neighbours = self.get_neighbours(x_pos, y_pos)
         
-        flip_cards(card, neighbours)
-        self.current_player = -1 * player
+        self.flip_cards(card, neighbours)
+        self.current_player = -1 * self.current_player
         
     
     # Display the status of the board
@@ -164,10 +186,11 @@ class GameState(object):
             mid_line = "|"
             bot_line = "|"
             for j in range(BOARD_SIZE):
-                card = get_card(i, j)
-                top_line = top_line + "   " if card is None else ( " " + str(card.get_top()) + " |")
-                mid_line = mid_line + "   " if card is None else (str(card.get_left()) + " " + str(card.get_right()) + "|")
-                bot_line = top_line + "   " if card is None else ( " " + str(card.get_bottom()) + " |")
+                card = self.get_card(i, j)
+                disp_num = lambda x: str(x) if x < 10 else 'A'
+                top_line = top_line + ( "   |" if card is None else ( " " + disp_num(card.get_top()) + " |") )
+                mid_line = mid_line + ( "   |" if card is None else (disp_num(card.get_left()) + " " + disp_num(card.get_right()) + "|") )
+                bot_line = bot_line + ( "   |" if card is None else ( " " + disp_num(card.get_bottom()) + " |") )
             print(top_line)
             print(mid_line)
             print(bot_line)
@@ -180,15 +203,17 @@ class Card(object):
     Number: The numbers of a card shown on the top left corner. It is a 4-elements list on a clockwise [top, right, bottom, left]. Number ranges from 1 to 10 (10 is ace)
     Owner: the player that owns this card
     Visible: whether the opponent can see this card
+    On Board: If the card has been placed on the board
     Name: the name of this card. Supposed to be unique.
     Rank: the rank of this card. If -1 it means this card is not classified
     Element: Only for special rules. Not implemented yet.
     '''
     
-    def __init__(self, numbers, owner = NO_ONE, visible = False, name = "", rank = -1,  element = -1):
+    def __init__(self, numbers, owner = NO_ONE, visible = False, on_board = False, name = "", rank = -1,  element = -1):
         self.numbers = numbers
         self.owner = owner
         self.visible = visible
+        self.on_board = on_board
         self.name = name
         self.rank = rank
         self.element = element
@@ -205,15 +230,20 @@ class Card(object):
     def get_left(self):
         return self.numbers[3]
     
+    def reset(self, owner = NO_ONE, visible = False, on_board = False):
+        # To improve the performance by resetting the owner/visible/on_board status, instead of creating new cards copies
+        self.visible = visible
+        self.owner = owner
+        self.on_board = on_board
 
 
 def load_cards_from_file(path, file_name):
     card_list = []
     with open(os.path.join(path,file_name), 'rb') as file:
-        cards = list(csv.reader(file))
+        cards = csv.DictReader(file)
         for card in cards:
             card_list.append( Card(
-                numbers = [card['top'], card['right'], card['bottom'], card['left']],
+                numbers = [ int(card['top']), int(card['right']), int(card['bottom']), int(card['left']) ],
                 name = card['name'],
                 rank = card['rank'],
                 element = card['element']
