@@ -31,11 +31,16 @@ VALID_FEATURES = {
     }
 }
 
-def state2feature(state, feature_list):
-    features = []
+def get_feature_dim(feature_list):
     feature_dim = 0
     for feature in feature_list:
         if feature in VALID_FEATURES:
-            features = features + VALID_FEATURES[feature]["function"](state)
             feature_dim = feature_dim + VALID_FEATURES[feature]["size"]
-    return feature_dim, features
+    return feature_dim
+
+def state2feature(state, feature_list):
+    features = []
+    for feature in feature_list:
+        if feature in VALID_FEATURES:
+            features = features + VALID_FEATURES[feature]["function"](state)
+    return features
