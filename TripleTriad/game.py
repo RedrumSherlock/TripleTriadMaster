@@ -42,6 +42,14 @@ rule_list = [
     "descension",
     "swap"]
 
+TOP_INDEX = 0
+RIGHT_INDEX = 1
+BOTTOM_INDEX = 2
+LEFT_INDEX = 3
+
+# The maximum rank level of a card
+MAX_RANK_LEVEL = 5
+
 class GameState(object):
     '''
     Here are the setting of the game:
@@ -109,7 +117,8 @@ class GameState(object):
         # Drop the card on the board based on the coordinates
         if self.on_Board(x_pos, y_pos):
             self.board[x_pos + y_pos * BOARD_SIZE] = card
-            card.on_board = True
+            card.position = (x_pos, y_pos)
+            card.visible = True
         
     def get_neighbours(self, x_pos, y_pos):
         # Returns a list of cards placed on board for the x_pos, y_pos. The list
@@ -167,7 +176,7 @@ class GameState(object):
     def get_unplayed_cards(self):
         cards = []
         for card in (self.left_cards if self.current_player == LEFT_PLAYER else self.right_cards):
-            if not card.on_board:
+            if not self.on_Board(*card.position):
                 cards.append(card) 
         return cards
        
@@ -213,32 +222,39 @@ class Card(object):
     Element: Only for special rules. Not implemented yet.
     '''
     
-    def __init__(self, numbers, owner = NO_ONE, visible = False, on_board = False, name = "", rank = -1,  element = -1):
+    def __init__(self, numbers, owner = NO_ONE, visible = False, position = (-1, -1), name = "", rank = -1,  element = -1):
         self.numbers = numbers
         self.owner = owner
         self.visible = visible
-        self.on_board = on_board
+        self.position = position
         self.name = name
         self.rank = rank
         self.element = element
-        
+    
     def get_top(self):
-        return self.numbers[0]
+        return self.get_number(TOP_INDEX)
     
     def get_right(self):
-        return self.numbers[1]
+        return self.get_number(RIGHT_INDEX)
     
     def get_bottom(self):
-        return self.numbers[2]
+        return self.get_number(BOTTOM_INDEX)
     
     def get_left(self):
-        return self.numbers[3]
+        return self.get_number(LEFT_INDEX)
     
-    def reset(self, owner = NO_ONE, visible = False, on_board = False):
-        # To improve the performance by resetting the owner/visible/on_board status, instead of creating new cards copies
+    def get_number(self, index):
+        return self.numbers[index]
+    
+    def get_rank(self):
+        return min(self.rank, MAX_RANK_LEVEL)
+    
+    
+    def reset(self, owner = NO_ONE, visible = False, position = (-1, -1)):
+        # To improve the performance by resetting the owner/visible/position status, instead of creating new cards copies
         self.visible = visible
         self.owner = owner
-        self.on_board = on_board
+        self.position = position
 
 
 def load_cards_from_file(path, file_name):

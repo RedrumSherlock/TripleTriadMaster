@@ -21,7 +21,7 @@ class TestGame(unittest.TestCase):
         default_right_cards = load_cards_from_file("", "cards.csv")
         
         winner = []
-        for _ in range(10000):
+        for _ in range(1000):
             left_cards = random.sample(default_left_cards, 5)
             right_cards = random.sample(default_right_cards, 5)
             
