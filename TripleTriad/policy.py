@@ -1,4 +1,5 @@
 import numpy as np
+import random
 from TripleTriad.feature import *
 from keras.models import Sequential, Model, model_from_json, clone_model
 from keras.layers import convolutional, merge, Input, BatchNormalization, Dense
@@ -27,8 +28,9 @@ class RandomPolicy():
     # This is an equiprobable policy that simply randomly pick one move from all the legal moves
         
     def get_action(self, state):
-        moves = state.get_legal_moves()
-        return np.random.choice(moves)
+        move = random.choice(state.get_legal_moves())
+        card = random.choice(state.get_unplayed_cards())
+        return (card, move)
     
 class NNPolicy():
     
@@ -69,7 +71,7 @@ class NNPolicy():
         moves = state.get_legal_moves()
         if len(moves) == 0:
             return None
-        # TODO pick the right action from neural network forward output
+        # TODO pick the right action, i.e. (card, move) pair, from neural network forward output
             
     def forward(self, state):   
         forward_function = K.function([self.model.input, K.learning_phase()], [self.model.output])
@@ -112,9 +114,10 @@ class NNPolicy():
         if 'weights_file' in object_specs:
             model.load_weights(object_specs['weights_file'])
         return model
-        
+   
 class Bias(Layer):
-    """Custom keras layer that simply adds a scalar bias to each location in the input
+    """
+    Custom keras layer that simply adds a scalar bias to each location in the input
 
     Largely copied from the keras docs:
     http://keras.io/layers/writing-your-own-keras-layers/#writing-your-own-keras-layers

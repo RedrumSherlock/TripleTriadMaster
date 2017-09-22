@@ -21,9 +21,8 @@ BOARD_SIZE = 3
 
 
 # the default cardset for both players
-DEFAULT_PATH = ""
-DEFAULT_LEFT_CARDS_FILE = "cards.csv"
-DEFAULT_RIGHT_CARDS_FILE = "cards.csv"
+DEFAULT_PATH = "test_cards"
+DEFAULT_CARDS_FILE = "cards.csv"
 
 # Check the detail of rules at http://ffxivtriad.com/rules. Right now only the all open rule is implemented
 rule_list = [
@@ -58,7 +57,7 @@ class GameState(object):
 
 
     def __init__(self, left_cards=[], right_cards=[], path=DEFAULT_PATH,
-                 left_file=DEFAULT_LEFT_CARDS_FILE, right_file=DEFAULT_RIGHT_CARDS_FILE,
+                 left_file=DEFAULT_CARDS_FILE, right_file=DEFAULT_CARDS_FILE,
                  current_player=np.random.choice([LEFT_PLAYER, RIGHT_PLAYER]), rules=['all_open']):
         self.rules = rules
         self.current_player = current_player
@@ -80,6 +79,7 @@ class GameState(object):
         elif len(self.left_cards) != START_HANDS:
             self.left_cards = random.sample(self.left_cards, START_HANDS)
         for card in self.left_cards:
+            card.reset()
             card.owner = LEFT_PLAYER
         
         # Same as above but for right player
@@ -88,6 +88,7 @@ class GameState(object):
         elif len(self.right_cards) != START_HANDS:
             self.right_cards = random.sample(self.right_cards, START_HANDS)
         for card in self.right_cards:
+            card.reset()
             card.owner = RIGHT_PLAYER
             
         # Check if all the rules are valid
