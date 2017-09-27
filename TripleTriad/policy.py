@@ -1,6 +1,9 @@
 import numpy as np
 import random
-from TripleTriad.feature import *
+import copy
+import TripleTriad.feature as FE
+import TripleTriad.game as Game
+import TripleTriad.game_helper as Helper
 from keras.models import Sequential, Model, model_from_json, clone_model
 from keras.layers import convolutional, merge, Input, BatchNormalization, Dense
 from keras.layers.core import Activation, Flatten
@@ -8,16 +11,10 @@ from keras.engine.topology import Layer
 from keras import backend as K
 import json
 
-DEFAULT_FEATURES = [
-    "board_numbers",
-    "opp_handcards",
-    "self_handcards",
-    "turn"
-    ]
-
 DEFAULT_NN_PARAMETERS = {
     "layers": 3,
-    "board_size": 3,
+    "card_number": 2 * Game.START_HANDS,
+    "output_dim": 2 * Game.START_HANDS + Game.BOARD_SIZE * Game.BOARD_SIZE,
     "activation": "relu",
     "output_activation": "softmax"
     }
@@ -28,13 +25,14 @@ class RandomPolicy():
     # This is an equiprobable policy that simply randomly pick one move from all the legal moves
         
     def get_action(self, state):
-        move = random.choice(state.get_legal_moves())
-        card = random.choice(state.get_unplayed_cards())
-        return (card, move)
+        # move = random.choice(state.get_legal_moves())
+        # card = random.choice(state.get_unplayed_cards())
+        action = Helper.vector2random_one_hot(state.get_unplayed_cards()) + Helper.vector2random_one_hot(state.get_legal_moves()) 
+        return GreedyPlay(state, action)
     
 class NNPolicy():
     
-    def __init__(self, params = DEFAULT_NN_PARAMETERS, features = DEFAULT_FEATURES, model_save_path = DEFAULT_MODEL_OUTPUT_PATH, 
+    def __init__(self, params = DEFAULT_NN_PARAMETERS, features = FE.DEFAULT_FEATURES, model_save_path = DEFAULT_MODEL_OUTPUT_PATH, 
                  model_load_path = None):
         self.params = params 
         self.features = features
@@ -49,33 +47,38 @@ class NNPolicy():
         
         # Draft Network Architecture for testing purpose
         # TODO - replace with a real architecture
-        network.add(Dense(
-            input_shape=(get_feature_dim(self.features), self.params["board_size"], self.params["board_size"]),
+        network.add(Dense(FE.get_feature_dim(self.features),
+            input_shape=(FE.get_feature_dim(self.features), self.params["card_number"]),
             activation=self.params["activation"]))
         for _ in range(self.params["layers"]):
-            network.add(Dense(activation=self.params["activation"]))
-        model.add(Flatten())
+            network.add(Dense(FE.get_feature_dim(self.features),
+                              activation=self.params["activation"]))
+        network.add(Flatten())
+        network.add(Dense(self.params["output_dim"]))
         network.add(Bias())
         network.add(Activation(self.params["output_activation"]))
-        network.set_weights()
+        return network
         
     def clone(self):
         new_policy = NNPolicy()
         new_policy.params = self.params.copy()
-        new_policy.features = self.features.copy()
+        new_policy.features = copy.copy(self.features)
         new_policy.model_save_path = self.model_save_path
         new_policy.model = clone_model(self.model)
         return new_policy
         
     def get_action(self, state):
-        moves = state.get_legal_moves()
-        if len(moves) == 0:
-            return None
+        return GreedyPlay(state, self.nn_output_normalize(state)[0].flatten())
         # TODO pick the right action, i.e. (card, move) pair, from neural network forward output
-            
-    def forward(self, state):   
+    
+    def nn_output_normalize(self, state):
+        output = self.forward(FE.state2feature(state, self.features))
+        mask = np.reshape(state.get_unplayed_cards() + state.get_legal_moves(), (1, -1))
+        return output * mask
+                
+    def forward(self, input):   
         forward_function = K.function([self.model.input, K.learning_phase()], [self.model.output])
-        return forward_function(state2feature(state, self.features))
+        return forward_function([input, 0])
     
     def fit(self, states, actions, rewards):
         # the fit method will update the policy by a batch of simulated experiences
@@ -132,3 +135,18 @@ class Bias(Layer):
 
     def call(self, x, mask=None):
         return x + self.W
+    
+
+def GreedyPlay(state, action):
+    # action is a vector of length 19 for the Probability Distribution of playing a card to a position, so action = card + move 
+    # Card is one of the 10 cards, from left+right cards list. Move is one of the 9 cells on the board, left to right and top to bottom. 
+    # So it looks like this for one-hot case: [0, 0, 0, 0, 1, 0, 0, 0, 0, 0,    0, 0, 0, 1, 0, 0, 0, 0, 0]
+    # Or like this for probabilistic case: [0.05, 0.15, 0, 0.05, 0.75, 0, 0, 0, 0, 0,    0.02, 0, 0.12, 0.68, 0, 0.08, 0.1, 0, 0]
+    # This example means we will pick the 5th card from the left player's hands, and place on the (0, 1) cell on the board
+    # It will return the (card, move) pair, where card is the Card object, and move is the (x, y) tuple
+    if len(action) != 2 * Game.START_HANDS + Game.BOARD_SIZE * Game.BOARD_SIZE:
+        raise ValueError("The action must have 19 dimensions")
+    card_index = np.argmax(action[:2 * Game.START_HANDS], axis = 0)
+    board_index = np.argmax(action[2 * Game.START_HANDS:], axis = 0)
+
+    return ( (state.left_cards + state.right_cards)[card_index], Helper.idx2tuple(board_index, Game.BOARD_SIZE) )   

@@ -1,12 +1,12 @@
 from TripleTriad.mc_train import *
+from TripleTriad.policy import NNPolicy
 import unittest
 
 class TestMCTrainingProcess(unittest.TestCase):
     
-    def test_nn_policy(self):
-        game = GameState()
-        feature_dim, features = state2feature(game, ["board_numbers"])
-        self.assertTrue(feature_dim == len(features))
+    def test_single_game_fit(self):
+        player = NNPolicy()
+        opp = player.clone()
             
 if __name__ == '__main__':
     unittest.main()

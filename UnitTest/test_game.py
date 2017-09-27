@@ -46,5 +46,6 @@ class TestGame(unittest.TestCase):
         # The chance that after enough game plays, ther number of games either player win is less than 10 percent of the total games is low enough to not be considered 
         self.assertTrue(len(filter(lambda x: x == 1, winner)) > iter/10 and len(filter(lambda x: x == -1, winner)) > iter/10 and len(filter(lambda x: x == 0, winner)) > iter/10)
     
+
 if __name__ == '__main__':
     unittest.main()

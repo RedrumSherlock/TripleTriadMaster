@@ -214,4 +214,4 @@ def state2feature(state, feature_list=DEFAULT_FEATURES):
             features.append(VALID_FEATURES[feature]["function"](state))
         else:
             raise ValueError("Unknown feature: %s" % feature)
-    return np.concatenate(features, axis = 0)
+    return np.concatenate(features, axis = 0).reshape(1, -1, 2 * Game.START_HANDS)

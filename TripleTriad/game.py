@@ -8,6 +8,7 @@ import warnings
 import random
 import os
 import csv
+import TripleTriad.game_helper as Helper
 
 
 # Left-hand side player and Right-hand side player 
@@ -106,19 +107,19 @@ class GameState(object):
     
     def on_Board(self, x_pos, y_pos):
         # The board is a 3x3 matrix, and the index ranges from 0 to 2 for both x(horizontal, columns) and y(vertical, rows)
-         return x_pos >= 0 and x_pos <= 2 and y_pos >= 0 and y_pos <= 2
+         return x_pos >= 0 and x_pos < BOARD_SIZE and y_pos >= 0 and y_pos < BOARD_SIZE
      
     def get_card(self, x_pos, y_pos):
         # returns the card on the board. If out side of the board returns None
         if self.on_Board(x_pos, y_pos):
-            return self.board[x_pos + y_pos * BOARD_SIZE]
+            return self.board[Helper.tuple2idx(BOARD_SIZE, x_pos, y_pos)]
         else:
             return None
     
     def place_card(self, card, x_pos, y_pos):
         # Drop the card on the board based on the coordinates
         if self.on_Board(x_pos, y_pos):
-            self.board[x_pos + y_pos * BOARD_SIZE] = card
+            self.board[Helper.tuple2idx(BOARD_SIZE, x_pos, y_pos)] = card
             card.position = (x_pos, y_pos)
             card.visible = True
         
@@ -169,17 +170,17 @@ class GameState(object):
             return None
     
     def get_legal_moves(self):
-        moves = []
+        moves = [0] * (BOARD_SIZE * BOARD_SIZE)
         for i in range(len(self.board)):
-            if self.board[i] is None:
-                moves.append((i % BOARD_SIZE, int(np.floor(i/BOARD_SIZE))))
+            moves[i] = (self.board[i] is None)
         return moves
     
+    
     def get_unplayed_cards(self):
-        cards = []
-        for card in (self.left_cards if self.current_player == LEFT_PLAYER else self.right_cards):
-            if not self.on_Board(*card.position):
-                cards.append(card) 
+        cards = [0] * (2 * START_HANDS)
+        all_cards = self.left_cards + self.right_cards
+        for i in range(len(all_cards)):
+            cards[i] = (not self.on_Board(*all_cards[i].position)) and all_cards[i].owner == self.current_player
         return cards
        
     # Play a card at position [x_pos, y_pos]            
@@ -271,4 +272,4 @@ def load_cards_from_file(path, file_name):
                 element = card['element']
                 ) )   
     return card_list  
-    
+     
