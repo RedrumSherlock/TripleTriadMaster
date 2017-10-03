@@ -19,3 +19,9 @@ def vector2random_one_hot(vector):
     one_hot[choice] = 1
     return one_hot
     
+def indices2onehot(card_index, board_index, BOARD_SIZE, START_HANDS):
+    cards = np.zeros(2 * START_HANDS)
+    board = np.zeros(BOARD_SIZE * BOARD_SIZE)
+    cards[card_index] = 1
+    board[board_index] = 1
+    return np.concatenate([cards, board], axis=0).reshape(1, 2 * START_HANDS + BOARD_SIZE * BOARD_SIZE)

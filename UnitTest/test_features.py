@@ -1,5 +1,6 @@
 from TripleTriad.feature import *
 from TripleTriad.game import GameState
+from TripleTriad.policy import RandomPolicy
 import unittest
 import numpy as np
 import random
@@ -27,11 +28,11 @@ class TestDefaultFeature(unittest.TestCase):
         game = GameState()  
         features = state2feature(game)
         start_player = np.sum( features[0, 16, :])
+        player = RandomPolicy()
         
         # Play the end until the end
         while(not game.is_end_of_game()):
-            move = random.choice(game.get_legal_moves())
-            card = random.choice(game.get_unplayed_cards())
+            (card, move) = player.get_action(game)
             game.play_round(card, *move)
         features = state2feature(game)
          

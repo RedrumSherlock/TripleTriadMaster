@@ -8,9 +8,10 @@ from keras.optimizers import SGD
 import keras.backend as K
 from TripleTriad.game import GameState
 import TripleTriad.game as Game
-from TripleTriad.policy import NNPolicy
+from TripleTriad.policy import *
 import TripleTriad.feature as FE
 import TripleTriad.game_helper as Helper
+from patsy import state
 
 ZEROTH_FILE = "weights.00000.hdf5"
  
@@ -30,8 +31,8 @@ def simulate_games(player, opponent, metadata):
     
     # Learner is always the left player, and the opponent picked from the pool is always the right player
     # Game will start randomly by left or right player by a 50/50
-    left_card_set = Game.load_cards_from_file(args.out_directory, args.card_set)
-    right_card_set = Game.load_cards_from_file(args.out_directory, args.card_set)
+    left_card_set = Game.load_cards_from_file(metadata["out_directory"], metadata["card_set"])
+    right_card_set = Game.load_cards_from_file(metadata["out_directory"], metadata["card_set"])
     
     for i in range(metadata["game_batch"]):
         left_cards = random.sample(left_card_set, Game.START_HANDS)
@@ -42,18 +43,27 @@ def simulate_games(player, opponent, metadata):
         while(not new_game.is_end_of_game()):
             if new_game.current_player == Game.LEFT_PLAYER:
                 # Record all the moves made by the learner
-                action = player.get_action()
+                (card_index, board_index) = GreedyPlay(new_game, player.nn_output_normalize(new_game))
+                action = Helper.indices2onehot(card_index, board_index, Game.BOARD_SIZE, Game.START_HANDS)
+                (card, move) = player.get_action(new_game, card_index, board_index)
                 states[i].append(FE.state2feature(new_game))
                 actions[i].append(action)
                 rewards[i].append(1)
             else:
-                action = opponent.get_action()
-            (card, move) = Helper.ActionToCardMove(new_game, action)
+                (card, move) = player.get_action(new_game)
             new_game.play_round(card, *move)
         
-        rewards[i] = rewards[i] * new_game.get_winner()
+        rewards[i] = np.dot(rewards[i], new_game.get_winner()).tolist()
         
-    return(states, actions, rewards)
+    return (states, actions, rewards)
+
+def train_on_results(policy, states, actions, rewards):
+    for (st_tensor, mv_tensor, won) in zip(states, actions, rewards):
+        print np.concatenate(st_tensor, axis=0).shape
+        print np.concatenate(mv_tensor, axis=0).shape
+        policy.fit(np.concatenate(st_tensor, axis=0), 
+                   np.concatenate(mv_tensor, axis=0), 
+                   won)
             
 def run_training(cmd_line_args=None):
     import argparse

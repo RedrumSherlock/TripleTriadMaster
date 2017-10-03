@@ -67,25 +67,27 @@ class NNPolicy():
         new_policy.model = clone_model(self.model)
         return new_policy
         
-    def get_action(self, state):
-        return GreedyPlay(state, self.nn_output_normalize(state)[0].flatten())
-        # TODO pick the right action, i.e. (card, move) pair, from neural network forward output
-    
+    def get_action(self, state, card_index = -1, board_index = -1):
+        # This will return the (card, move) pair, where card is the Card object, and move is the (x, y) tuple
+        if card_index < 0 or board_index < 0:
+            (card_index, board_index) = GreedyPlay(state, self.nn_output_normalize(state))
+        return ( (state.left_cards + state.right_cards)[card_index], Helper.idx2tuple(board_index, Game.BOARD_SIZE) )
+        
     def nn_output_normalize(self, state):
         output = self.forward(FE.state2feature(state, self.features))
         mask = np.reshape(state.get_unplayed_cards() + state.get_legal_moves(), (1, -1))
-        return output * mask
+        return (output * mask)[0].flatten()
                 
     def forward(self, input):   
         forward_function = K.function([self.model.input, K.learning_phase()], [self.model.output])
         return forward_function([input, 0])
     
-    def fit(self, states, actions, rewards):
+    def fit(self, states, actions, won):
         # the fit method will update the policy by a batch of simulated experiences
         # states: n x dim array. n is the number of samples to be trained. dim is the dimenstion of all the features
         # actions: n x (board_size * board_size) array. A one-hot array for each possible action tuple (x, y)
         # rewards: n x 1 array. With either +1/0/-1 for win/tie/lose
-        self.model.optimizer.lr = K.abs(optimizer.lr) * (+1 if won else -1)
+        self.model.optimizer.lr = K.abs(self.model.optimizer.lr) * (+1 if won else -1)
         self.model.train_on_batch(states, actions)
         
     def save_model(self, weights_file=None):
@@ -143,10 +145,10 @@ def GreedyPlay(state, action):
     # So it looks like this for one-hot case: [0, 0, 0, 0, 1, 0, 0, 0, 0, 0,    0, 0, 0, 1, 0, 0, 0, 0, 0]
     # Or like this for probabilistic case: [0.05, 0.15, 0, 0.05, 0.75, 0, 0, 0, 0, 0,    0.02, 0, 0.12, 0.68, 0, 0.08, 0.1, 0, 0]
     # This example means we will pick the 5th card from the left player's hands, and place on the (0, 1) cell on the board
-    # It will return the (card, move) pair, where card is the Card object, and move is the (x, y) tuple
+
     if len(action) != 2 * Game.START_HANDS + Game.BOARD_SIZE * Game.BOARD_SIZE:
         raise ValueError("The action must have 19 dimensions")
     card_index = np.argmax(action[:2 * Game.START_HANDS], axis = 0)
     board_index = np.argmax(action[2 * Game.START_HANDS:], axis = 0)
 
-    return ( (state.left_cards + state.right_cards)[card_index], Helper.idx2tuple(board_index, Game.BOARD_SIZE) )   
+    return (card_index, board_index)
