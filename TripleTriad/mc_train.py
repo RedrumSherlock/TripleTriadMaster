@@ -22,6 +22,11 @@ def log_loss(y_true, y_pred):
     '''
     return -y_true * K.log(K.clip(y_pred, K.epsilon(), 1.0 - K.epsilon()))
 
+
+def save_metadata(metadata, directory, filename):
+    with open(os.path.join(directory, filename), "w") as f:
+        json.dump(metadata, f, sort_keys=True, indent=2)
+            
 def simulate_games(player, opponent, metadata):
     
     states = [[] for _ in range(metadata["game_batch"])] # Feature from the game state, i.e. by default feature a 17 x 10 array
@@ -59,8 +64,6 @@ def simulate_games(player, opponent, metadata):
 
 def train_on_results(policy, states, actions, rewards):
     for (st_tensor, mv_tensor, won) in zip(states, actions, rewards):
-        print np.concatenate(st_tensor, axis=0).shape
-        print np.concatenate(mv_tensor, axis=0).shape
         policy.fit(np.concatenate(st_tensor, axis=0), 
                    np.concatenate(mv_tensor, axis=0), 
                    won)
@@ -110,13 +113,12 @@ def run_training(cmd_line_args=None):
             "save_every": args.save_every,
             "card_set": args.card_set,
             "opponents": [ZEROTH_FILE],  # which weights from which to sample an opponent each batch
-            "win_ratio": {}  # map from player to tuple of (opponent, win ratio) Useful for
-                             # validating in lieu of 'accuracy/loss'
+            "num_wins": {}  # number of wins for player in each batch
         }
         player_weights = ZEROTH_FILE
         iter_start = 1
         player = NNPolicy()
-        save_metadata()
+        save_metadata(metadata, args.out_directory, "metadata.json")
         # Create the Zeroth weight file
         player.model.save_weights(os.path.join(args.out_directory, player_weights))
     else:
@@ -164,10 +166,6 @@ def run_training(cmd_line_args=None):
     metadata["cmd_line_args"] = metadata.get("cmd_line_args", [])
     metadata["cmd_line_args"].append(vars(args))
 
-    def save_metadata():
-        with open(os.path.join(args.out_directory, "metadata.json"), "w") as f:
-            json.dump(metadata, f, sort_keys=True, indent=2)
-
     optimizer = SGD(lr=args.learning_rate)
     player.model.compile(loss=log_loss, optimizer=optimizer)
     for i_iter in range(iter_start, args.iterations + 1):
@@ -186,10 +184,10 @@ def run_training(cmd_line_args=None):
         if args.verbose:
             print("Batch {}\tsampled opponent is {}".format(i_iter, opp_weights))
 
-        # Run games (and learn from results). Keep track of the win ratio vs each opponent over
-        # time.
-        win_ratio = run_n_games(optimizer, player, opponent, args.game_batch)
-        metadata["win_ratio"][player_weights] = (opp_weights, win_ratio)
+        # Run games (and learn from results)
+        (states, actions, rewards) = simulate_games(player, opponent, metadata)
+        train_on_results(player, states, actions, rewards)
+        metadata["num_wins"][player_weights] = sum(reward[0] == 1 for reward in rewards)
 
         # Save intermediate models.
         if i_iter % args.record_every == 0:
@@ -198,7 +196,7 @@ def run_training(cmd_line_args=None):
         # Add player to batch of oppenents once in a while.
         if i_iter % args.save_every == 0:
             metadata["opponents"].append(player_weights)
-        save_metadata()
+        save_metadata(metadata, args.out_directory, "metadata.json")
 
 
 if __name__ == '__main__':

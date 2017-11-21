@@ -58,11 +58,13 @@ class GameState(object):
     '''
 
 
-    def __init__(self, left_cards=[], right_cards=[], path=DEFAULT_PATH,
+    def __init__(self, left_cards=None, right_cards=None, path=DEFAULT_PATH,
                  left_file=DEFAULT_CARDS_FILE, right_file=DEFAULT_CARDS_FILE,
-                 current_player=np.random.choice([LEFT_PLAYER, RIGHT_PLAYER]), rules=['all_open']):
-        self.rules = rules
-        self.current_player = current_player
+                 current_player=None, rules=None):
+        if rules is None:
+            self.rules = ['all_open']
+        if current_player is None:
+            self.current_player = np.random.choice([LEFT_PLAYER, RIGHT_PLAYER])
         self.left_cards = left_cards
         self.right_cards = right_cards
         self.path = path
@@ -76,7 +78,7 @@ class GameState(object):
         self.board = [None] * (BOARD_SIZE * BOARD_SIZE)
         
         # If no cards were given, randomly choose 5 from the card set. Also set their owner to be left player
-        if len(self.left_cards) == 0:
+        if self.left_cards is None or len(self.left_cards) == 0:
             self.left_cards = random.sample(load_cards_from_file(self.path, self.left_file), START_HANDS)
         elif len(self.left_cards) != START_HANDS:
             self.left_cards = random.sample(self.left_cards, START_HANDS)
@@ -85,7 +87,7 @@ class GameState(object):
             card.owner = LEFT_PLAYER
         
         # Same as above but for right player
-        if len(right_cards) == 0:
+        if self.right_cards is None or len(self.right_cards) == 0:
             self.right_cards = random.sample(load_cards_from_file(self.path, self.right_file), START_HANDS)
         elif len(self.right_cards) != START_HANDS:
             self.right_cards = random.sample(self.right_cards, START_HANDS)
