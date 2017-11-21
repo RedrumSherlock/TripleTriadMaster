@@ -11,7 +11,6 @@ import TripleTriad.game as Game
 from TripleTriad.policy import *
 import TripleTriad.feature as FE
 import TripleTriad.game_helper as Helper
-from patsy import state
 
 ZEROTH_FILE = "weights.00000.hdf5"
  
