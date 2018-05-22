@@ -118,6 +118,10 @@ class GameState(object):
         else:
             return None
     
+    def get_handcard(self, card_index):
+        # returns the card on the board. If out side of the board returns None
+        return (self.left_cards + self.right_cards)[card_index]
+    
     def place_card(self, card, x_pos, y_pos):
         # Drop the card on the board based on the coordinates
         if self.on_Board(x_pos, y_pos):
@@ -137,30 +141,37 @@ class GameState(object):
         return neighbours
     
     
-    def flip_cards(self, card, neighbours):
+    def flip_cards(self, card, x_pos, y_pos, commit=True):
         # Apply the basic rule here. Will be tuned for special rules such as same or combo.
         # Flip top, right, bot, left
+        flipped = 0
+        neighbours = self.get_neighbours(x_pos, y_pos)
         for i in range(4):
             if neighbours[i] is not None and neighbours[i].owner != self.current_player:
                 # Compare the top edge
                 if i == 0 and card.get_top() > neighbours[i].get_bottom():
-                    neighbours[i].owner = self.current_player
+                    flipped += 1
+                    if commit: neighbours[i].owner = self.current_player
                 # Compare the right edge
                 if i == 1 and card.get_right() > neighbours[i].get_left():
-                    neighbours[i].owner = self.current_player
+                    flipped += 1
+                    if commit:  neighbours[i].owner = self.current_player
                 # Compare the bottom edge
                 if i == 2 and card.get_bottom() > neighbours[i].get_top():
-                    neighbours[i].owner = self.current_player
+                    flipped += 1
+                    if commit: neighbours[i].owner = self.current_player
                 # Compare the left edge
                 if i == 3 and card.get_left() > neighbours[i].get_right():
-                    neighbours[i].owner = self.current_player
-                    
+                    flipped += 1
+                    if commit: neighbours[i].owner = self.current_player
+        return flipped
+                
     def is_end_of_game(self):
-        return len(filter(lambda x: x is None, self.board)) == 0
+        return sum(1 for _ in filter(lambda x: x is None, self.board)) == 0
     
     def get_winner(self):
         if self.is_end_of_game():
-            left_cards = len(filter(lambda l: l.owner == LEFT_PLAYER, self.left_cards + self.right_cards))
+            left_cards = sum(1 for _ in filter(lambda l: l.owner == LEFT_PLAYER, self.left_cards + self.right_cards))
             right_cards = START_HANDS * 2 - left_cards
             if left_cards == right_cards:
                 return NO_ONE
@@ -172,26 +183,38 @@ class GameState(object):
             return None
     
     def get_legal_moves(self):
+        moves = []
+        for x in range(BOARD_SIZE):
+            for y in range(BOARD_SIZE):
+                if self.board[Helper.tuple2idx(BOARD_SIZE, x, y)] is None:
+                    moves.append((x, y))
+        return moves
+    
+    def get_legal_moves_by_index(self):
         moves = [0] * (BOARD_SIZE * BOARD_SIZE)
         for i in range(len(self.board)):
             moves[i] = (self.board[i] is None)
         return moves
     
-    
+    def _is_card_playable(self, card):
+        return (not self.on_Board(*card.position)) and card.owner == self.current_player
+        
     def get_unplayed_cards(self):
+        return list(filter(lambda card: self._is_card_playable(card), self.left_cards + self.right_cards))
+    
+    def get_unplayed_cards_by_index(self):
         cards = [0] * (2 * START_HANDS)
         all_cards = self.left_cards + self.right_cards
         for i in range(len(all_cards)):
-            cards[i] = (not self.on_Board(*all_cards[i].position)) and all_cards[i].owner == self.current_player
+            cards[i] = _is_card_playable(all_cards[i]).astype(int)
         return cards
        
     # Play a card at position [x_pos, y_pos]            
     def play_round(self, card, x_pos, y_pos):
         card.owner = self.current_player
         self.place_card(card, x_pos, y_pos)
-        neighbours = self.get_neighbours(x_pos, y_pos)
         
-        self.flip_cards(card, neighbours)
+        self.flip_cards(card, x_pos, y_pos)
         self.current_player = -1 * self.current_player
         self.turn = self.turn + 1
         
@@ -254,6 +277,10 @@ class Card(object):
     def get_rank(self):
         return min(self.rank, MAX_RANK_LEVEL)
     
+    def get_value(self):
+        # To measure the value of a card. We use a basic logic here - the sum of four numbers of the card
+        return sum(self.numbers)
+    
     
     def reset(self, owner = NO_ONE, visible = False, position = (-1, -1)):
         # To improve the performance by resetting the owner/visible/position status, instead of creating new cards copies
@@ -264,7 +291,7 @@ class Card(object):
 
 def load_cards_from_file(path, file_name):
     card_list = []
-    with open(os.path.join(path,file_name), 'rb') as file:
+    with open(os.path.join(path,file_name), 'rt') as file:
         cards = csv.DictReader(file)
         for card in cards:
             card_list.append( Card(
