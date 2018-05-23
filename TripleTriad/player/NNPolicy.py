@@ -3,7 +3,7 @@ import random
 import copy
 import TripleTriad.feature as FE
 import TripleTriad.game as Game
-from TripleTriad.policy import Policy
+from TripleTriad.player.policy import Policy
 import TripleTriad.game_helper as Helper
 from keras.models import Sequential, Model, model_from_json, clone_model
 from keras.layers import convolutional, merge, Input, BatchNormalization, Dense

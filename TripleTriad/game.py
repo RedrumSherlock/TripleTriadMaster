@@ -12,9 +12,9 @@ import TripleTriad.game_helper as Helper
 
 
 # Left-hand side player and Right-hand side player 
-LEFT_PLAYER = -1
+LEFT_PLAYER = 1
 NO_ONE = 0
-RIGHT_PLAYER = 1
+RIGHT_PLAYER = -1
 
 # the number of hards for each player at the beginning of the game, and the size
 # of the board. These should not be changed.
@@ -202,7 +202,7 @@ class GameState(object):
         cards = [0] * (2 * START_HANDS)
         all_cards = self.left_cards + self.right_cards
         for i in range(len(all_cards)):
-            cards[i] = _is_card_playable(all_cards[i]).astype(int)
+            cards[i] = self._is_card_playable(all_cards[i]) * 1
         return cards
        
     # Play a card at position [x_pos, y_pos]            

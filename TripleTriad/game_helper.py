@@ -25,3 +25,9 @@ def indices2onehot(card_index, board_index, BOARD_SIZE, START_HANDS):
     cards[card_index] = 1
     board[board_index] = 1
     return np.concatenate([cards, board], axis=0).reshape(1, 2 * START_HANDS + BOARD_SIZE ** 2)
+
+def is_corner(x_pos, y_pos):
+    return x_pos != 1 and y_pos != 1
+
+def is_side(x_pos, y_pos):
+    return (x_pos == 1 or y_pos == 1) and not (x_pos == 1 and y_pos == 1)

@@ -1,5 +1,5 @@
 from TripleTriad.game import *
-from TripleTriad.policy import RandomPolicy
+from TripleTriad.player.policy import RandomPolicy
 import unittest
 import copy
 

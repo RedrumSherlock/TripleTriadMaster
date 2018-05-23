@@ -1,5 +1,5 @@
 from TripleTriad.mc_train import *
-from TripleTriad.policy import NNPolicy
+from TripleTriad.player.NNPolicy import NNPolicy
 from keras.optimizers import SGD
 import unittest
 import warnings

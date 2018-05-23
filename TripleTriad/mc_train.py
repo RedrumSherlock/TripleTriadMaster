@@ -8,7 +8,7 @@ from keras.optimizers import SGD
 import keras.backend as K
 from TripleTriad.game import GameState
 import TripleTriad.game as Game
-from TripleTriad.policy import *
+from TripleTriad.player.NNPolicy import NNPolicy
 import TripleTriad.feature as FE
 import TripleTriad.game_helper as Helper
 
@@ -63,7 +63,7 @@ def simulate_games(player, opponent, metadata):
         while(not new_game.is_end_of_game()):
             if new_game.current_player == Game.LEFT_PLAYER:
                 # Record all the moves made by the learner
-                (card_index, board_index) = GreedyPlay(new_game, player.nn_output_normalize(new_game))
+                (card_index, board_index) = player.GreedyPlay(new_game, player.nn_output_normalize(new_game))
                 action = Helper.indices2onehot(card_index, board_index, Game.BOARD_SIZE, Game.START_HANDS)
                 (card, move) = player.get_action(new_game, card_index, board_index)
                 states[i].append(FE.state2feature(new_game))

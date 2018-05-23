@@ -1,6 +1,6 @@
 from TripleTriad.feature import *
 from TripleTriad.game import GameState
-from TripleTriad.policy import RandomPolicy
+from TripleTriad.player.policy import RandomPolicy
 import unittest
 import numpy as np
 import random

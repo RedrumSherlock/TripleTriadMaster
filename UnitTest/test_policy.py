@@ -1,4 +1,4 @@
-from TripleTriad.policy import NNPolicy
+from TripleTriad.player.NNPolicy import NNPolicy
 from TripleTriad.game import *
 import TripleTriad.game_helper as Helper
 import TripleTriad.feature as FE
