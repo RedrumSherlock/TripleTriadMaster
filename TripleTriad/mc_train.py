@@ -70,7 +70,7 @@ def simulate_games(player, opponent, metadata):
                 actions[i].append(action)
                 rewards[i].append(1)
             else:
-                (card, move) = player.get_action(new_game)
+                (card, move) = opponent.get_action(new_game)
             new_game.play_round(card, *move)
         
         rewards[i] = np.dot(rewards[i], new_game.get_winner()).tolist()
