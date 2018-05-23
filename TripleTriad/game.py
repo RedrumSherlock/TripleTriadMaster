@@ -52,10 +52,6 @@ LEFT_INDEX = 3
 MAX_RANK_LEVEL = 5
 
 class GameState(object):
-    '''
-    Here are the setting of the game:
-    rule
-    '''
 
 
     def __init__(self, left_cards=None, right_cards=None, path=DEFAULT_PATH,
@@ -75,7 +71,7 @@ class GameState(object):
         self.start_hands = START_HANDS
         
         # Initialize the board
-        self.board = [None] * (BOARD_SIZE * BOARD_SIZE)
+        self.board = [None] * (BOARD_SIZE ** 2)
         
         # If no cards were given, randomly choose 5 from the card set. Also set their owner to be left player
         if self.left_cards is None or len(self.left_cards) == 0:
@@ -156,11 +152,11 @@ class GameState(object):
                     neighbours[i].owner = self.current_player
                     
     def is_end_of_game(self):
-        return len(filter(lambda x: x is None, self.board)) == 0
+        return sum( 1 for _ in filter(lambda x: x is None, self.board)) == 0
     
     def get_winner(self):
         if self.is_end_of_game():
-            left_cards = len(filter(lambda l: l.owner == LEFT_PLAYER, self.left_cards + self.right_cards))
+            left_cards = sum( 1 for _ in filter(lambda l: l.owner == LEFT_PLAYER, self.left_cards + self.right_cards))
             right_cards = START_HANDS * 2 - left_cards
             if left_cards == right_cards:
                 return NO_ONE
@@ -172,7 +168,7 @@ class GameState(object):
             return None
     
     def get_legal_moves(self):
-        moves = [0] * (BOARD_SIZE * BOARD_SIZE)
+        moves = [0] * (BOARD_SIZE ** 2)
         for i in range(len(self.board)):
             moves[i] = (self.board[i] is None)
         return moves
@@ -264,7 +260,7 @@ class Card(object):
 
 def load_cards_from_file(path, file_name):
     card_list = []
-    with open(os.path.join(path,file_name), 'rb') as file:
+    with open(os.path.join(path,file_name), 'rt') as file:
         cards = csv.DictReader(file)
         for card in cards:
             card_list.append( Card(

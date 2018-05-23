@@ -27,6 +27,22 @@ def save_metadata(metadata, directory, filename):
         json.dump(metadata, f, sort_keys=True, indent=2)
             
 def simulate_games(player, opponent, metadata):
+    """
+    Args:
+        player: a policy for the player side
+        opponent: another policy for the opponent side
+        metadata: a dictionary which contains the meta data for this training process
+        
+    Returns:
+        states: a list with n elements, where n is the number of games (in each batch) specified by game_batch in metadata. Each element is another list
+                with m elements, where m is the moves made in this game by the player (we only train based on the player actions, not the opponent). Each 
+                element in this list is the game feature (basically a ndarray with size 1xDIMx10. DIM is the dimension of all selected features for each card)
+        actions: Similar to the states, a list of list for each game, and the element in the inner list is a one-hot vector representing the action (a 1xn 
+                ndarray where n=2*HAND_SIZE + BOARD_SIZE**2. The number one in this array represents the move, i.e. from a hand index to a board index)
+        rewards: Similar to the actions, a list of list for each game, and the element in the inner list is a number, either 1 or 0 which respresent win 
+                or lose for the whole game. 
+        
+    """
     
     states = [[] for _ in range(metadata["game_batch"])] # Feature from the game state, i.e. by default feature a 17 x 10 array
     actions = [[] for _ in range(metadata["game_batch"])] # Each action should be a pair of (move, card). Move is the one-hot vector for 9 cells on the board. 

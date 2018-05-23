@@ -28,7 +28,8 @@ class RandomPolicy():
         # move = random.choice(state.get_legal_moves())
         # card = random.choice(state.get_unplayed_cards())
         action = Helper.vector2random_one_hot(state.get_unplayed_cards()) + Helper.vector2random_one_hot(state.get_legal_moves()) 
-        return GreedyPlay(state, action)
+        (card_index, board_index) = GreedyPlay(state, action)
+        return ( (state.left_cards + state.right_cards)[card_index], Helper.idx2tuple(board_index, Game.BOARD_SIZE) )
     
 class NNPolicy():
     
@@ -83,11 +84,15 @@ class NNPolicy():
         return forward_function([input, 0])
     
     def fit(self, states, actions, won):
-        # the fit method will update the policy by a batch of simulated experiences
-        # states: n x dim array. n is the number of samples to be trained. dim is the dimenstion of all the features
-        # actions: n x (board_size * board_size) array. A one-hot array for each possible action tuple (x, y)
-        # rewards: n x 1 array. With either +1/0/-1 for win/tie/lose
+        """
+        The fit method will update the policy by a batch of simulated experiences
+        Args: 
+            states: n x dim x 10 array. n is the number of samples to be trained (steps player has played). dim is the dimension of all the features
+            actions: n x (2 * hand_size + board_size ** 2 = 19) array. A one-hot array for each possible action
+            rewards: n x 1 array. With either +1/0/-1 for win/tie/lose
+        """
         self.model.optimizer.lr = K.abs(self.model.optimizer.lr) * (+1 if won else -1)
+        # TODO: update to fit with epochs 
         self.model.train_on_batch(states, actions)
         
     def save_model(self, weights_file=None):
@@ -146,7 +151,7 @@ def GreedyPlay(state, action):
     # Or like this for probabilistic case: [0.05, 0.15, 0, 0.05, 0.75, 0, 0, 0, 0, 0,    0.02, 0, 0.12, 0.68, 0, 0.08, 0.1, 0, 0]
     # This example means we will pick the 5th card from the left player's hands, and place on the (0, 1) cell on the board
 
-    if len(action) != 2 * Game.START_HANDS + Game.BOARD_SIZE * Game.BOARD_SIZE:
+    if len(action) != 2 * Game.START_HANDS + Game.BOARD_SIZE ** 2:
         raise ValueError("The action must have 19 dimensions")
     card_index = np.argmax(action[:2 * Game.START_HANDS], axis = 0)
     board_index = np.argmax(action[2 * Game.START_HANDS:], axis = 0)

@@ -15,7 +15,7 @@ class TestGame(unittest.TestCase):
             (card, move) = player.get_action(game)
             game.play_round(card, *move)
             turns += 1
-        self.assertTrue(len(filter(lambda x: x is None, game.board)) == 0)
+        self.assertTrue(sum( 1 for _ in filter(lambda x: x is None, game.board)) == 0)
         self.assertTrue(turns == game.board_size * game.board_size)
         
     def test_random_games(self):
@@ -44,7 +44,9 @@ class TestGame(unittest.TestCase):
             winner.append(game.get_winner())
         # when we play as random vs random and play enough times with basic rules, the results should be equally distributed across win, lose, and tie
         # The chance that after enough game plays, ther number of games either player win is less than 10 percent of the total games is low enough to not be considered 
-        self.assertTrue(len(filter(lambda x: x == 1, winner)) > iter/10 and len(filter(lambda x: x == -1, winner)) > iter/10 and len(filter(lambda x: x == 0, winner)) > iter/10)
+        self.assertTrue(sum( 1 for _ in filter(lambda x: x == 1, winner)) > iter/10 \
+                        and sum( 1 for _ in filter(lambda x: x == -1, winner)) > iter/10 \
+                        and sum( 1 for _ in filter(lambda x: x == 0, winner)) > iter/10)
     
 
 if __name__ == '__main__':
