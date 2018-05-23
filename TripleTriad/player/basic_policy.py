@@ -3,7 +3,6 @@ import TripleTriad.game as Game
 from TripleTriad.player.policy import Policy
 import numpy as np
 import random
-from tensorflow.contrib.graph_editor.util import is_iterable
 
 class BasicPolicy(Policy):
     """
