@@ -204,7 +204,22 @@ class GameState(object):
         for i in range(len(all_cards)):
             cards[i] = self._is_card_playable(all_cards[i]) * 1
         return cards
-       
+    
+    def get_avg_exposed_number(self, card, x_pos, y_pos):
+        total = 0
+        exposed = 0
+        adj_positions = {"get_top": (x_pos, y_pos - 1), 
+                         "get_right": (x_pos + 1, y_pos), 
+                         "get_bottom": (x_pos, y_pos + 1), 
+                         "get_left": (x_pos - 1, y_pos)}
+        for func_call, position in adj_positions.items():
+            if self.on_Board(*position) and self.get_card(*position) is None:
+                callable_func = getattr(card, func_call)
+                total += callable_func()
+                exposed += 1
+        
+        return (total/exposed) if exposed > 0 else 0
+    
     # Play a card at position [x_pos, y_pos]            
     def play_round(self, card, x_pos, y_pos):
         card.owner = self.current_player

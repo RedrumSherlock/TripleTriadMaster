@@ -1,5 +1,5 @@
 from TripleTriad.player.policy import RandomPolicy
-from TripleTriad.player.basic_policy import BasicPolicy
+from TripleTriad.player.basic_policy import BasicPolicy, BaselinePolicy
 from TripleTriad.game_helper import timer
 import TripleTriad.game as gm
 import random

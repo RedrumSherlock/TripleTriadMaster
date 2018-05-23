@@ -23,6 +23,52 @@ class BasicPolicy(Policy):
         flips = [0] * len(unplayed_cards)    # How many flips can this card make at most 
         moves = [legal_moves[0]] * len(unplayed_cards)    # Which position this card plays at can make the most flips
         values = [0] * len(unplayed_cards)    # The value of this card
+        avg_exposed = [0] * len(unplayed_cards)     # Best average exposed number each card can achieve if played on the board
+        expose_moves = [legal_moves[0]] * len(unplayed_cards)    # Which position this card plays at can make the best average exposed number
+        
+        for i, card in enumerate(unplayed_cards):
+            values[i] = card.get_value()
+            for move in legal_moves:
+                cards_flipped = state.flip_cards(card, move[0], move[1], False)
+                exposed = state.get_avg_exposed_number(card, *move)
+                if cards_flipped > flips[i]:
+                    flips[i] = cards_flipped
+                    moves[i] = move
+                if exposed > avg_exposed[i]:
+                    avg_exposed[i] = exposed
+                    expose_moves[i] = move    
+                
+        
+        if sum(flips) == 0:
+            # This means nothing will be flipped no matter what do we play. In this case we simply pick the card with the highest exposed number
+            # a.k.a safest play available
+            card_index = np.argmax(avg_exposed)
+            move = expose_moves[card_index]
+            
+        else:
+            # We pick the card that is able to make the most flips, but with the lowest value
+            max_flip = max(flips)     
+            card_index = values.index(min(values[i] for i,v in enumerate(flips) if v == max_flip))
+            move = moves[card_index]
+                                  
+        return unplayed_cards[card_index], move
+
+
+class BaselinePolicy(Policy):
+    """
+    Only for testing purpose regarding how much improvement can we make from a change.
+    """
+    
+    def __init__(self):
+        pass
+        
+    def get_action(self, state):
+        
+        unplayed_cards = state.get_unplayed_cards()
+        legal_moves = state.get_legal_moves()
+        flips = [0] * len(unplayed_cards)    # How many flips can this card make at most 
+        moves = [legal_moves[0]] * len(unplayed_cards)    # Which position this card plays at can make the most flips
+        values = [0] * len(unplayed_cards)    # The value of this card
         
         for i, card in enumerate(unplayed_cards):
             values[i] = card.get_value()
