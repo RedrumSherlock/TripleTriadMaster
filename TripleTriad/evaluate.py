@@ -1,5 +1,6 @@
 from TripleTriad.player.policy import RandomPolicy
 from TripleTriad.player.basic_policy import BasicPolicy
+from TripleTriad.game_helper import timer
 import TripleTriad.game as gm
 import random
 
@@ -9,6 +10,7 @@ def evaluate():
     opponent = RandomPolicy()
     compare_policy(player, opponent, 10000)
 
+@timer
 def compare_policy(player, opponent, num_games):
     default_left_cards = gm.load_cards_from_file("test_cards", "cards.csv")
     default_right_cards = gm.load_cards_from_file("test_cards", "cards.csv")

@@ -1,4 +1,5 @@
 import numpy as np
+import time
 
 
 def tuple2idx(board_size, x_pos, y_pos):
@@ -31,3 +32,13 @@ def is_corner(x_pos, y_pos):
 
 def is_side(x_pos, y_pos):
     return (x_pos == 1 or y_pos == 1) and not (x_pos == 1 and y_pos == 1)
+
+def timer(func):
+    def timing(*args, **kwargs):
+        start = time.time()
+        result = func(*args, **kwargs)
+        end = time.time()
+        print("{} ran for {} seconds".format(func.__name__, end - start))
+        return result
+    
+    return timing
