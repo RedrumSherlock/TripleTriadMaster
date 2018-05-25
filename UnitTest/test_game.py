@@ -1,7 +1,10 @@
-from TripleTriad.game import *
+from TripleTriad.game import GameState
 from TripleTriad.player.policy import RandomPolicy
+
 import unittest
 import copy
+import random
+
 
 class TestGame(unittest.TestCase):
     
@@ -20,8 +23,8 @@ class TestGame(unittest.TestCase):
         
     def test_random_games(self):
         
-        default_left_cards = load_cards_from_file("test_cards", "cards.csv")
-        default_right_cards = load_cards_from_file("test_cards", "cards.csv")
+        default_left_cards = GameState.load_cards_from_file("test_cards", "cards.csv")
+        default_right_cards = GameState.load_cards_from_file("test_cards", "cards.csv")
         
         winner = []
         player = RandomPolicy()

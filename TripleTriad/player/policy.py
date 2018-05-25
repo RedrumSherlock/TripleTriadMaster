@@ -1,6 +1,3 @@
-import TripleTriad.game_helper as Helper
-import TripleTriad.game as Game
-import numpy as np
 import random
 
 

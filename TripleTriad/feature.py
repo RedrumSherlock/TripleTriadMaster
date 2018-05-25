@@ -1,13 +1,15 @@
+import TripleTriad.game as gm
+
 import numpy as np
-import TripleTriad.game as Game
+
 
 def get_number(state, index):
-    result = np.zeros((1, 2 * Game.START_HANDS))
-    for i in range(2 * Game.START_HANDS):
-        if i < Game.START_HANDS:
+    result = np.zeros((1, 2 * gm.START_HANDS))
+    for i in range(2 * gm.START_HANDS):
+        if i < gm.START_HANDS:
             card = state.left_cards[i]
         else:
-            card = state.right_cards[i - Game.START_HANDS]
+            card = state.right_cards[i - gm.START_HANDS]
         
         if not card.visible and card.owner != state.current_player:
             result[0, i] = 0
@@ -16,12 +18,12 @@ def get_number(state, index):
     return result
 
 def get_number_one_hot(state, index):
-    result = np.zeros((11, 2 * Game.START_HANDS))
-    for i in range(2 * Game.START_HANDS):
-        if i < Game.START_HANDS:
+    result = np.zeros((11, 2 * gm.START_HANDS))
+    for i in range(2 * gm.START_HANDS):
+        if i < gm.START_HANDS:
             card = state.left_cards[i]
         else:
-            card = state.right_cards[i - Game.START_HANDS]
+            card = state.right_cards[i - gm.START_HANDS]
         
         if not card.visible and card.owner != state.current_player:
             result[0, i] = 1
@@ -31,67 +33,67 @@ def get_number_one_hot(state, index):
 
 
 def get_top_number(state):
-    return get_number(state, Game.TOP_INDEX)
+    return get_number(state, gm.TOP_INDEX)
 
 def get_top_number_one_hot(state):
-    return get_number_one_hot(state, Game.TOP_INDEX)
+    return get_number_one_hot(state, gm.TOP_INDEX)
     
 def get_right_number(state):
-    return get_number(state, Game.RIGHT_INDEX)
+    return get_number(state, gm.RIGHT_INDEX)
 
 def get_right_number_one_hot(state):
-    return get_number_one_hot(state, Game.RIGHT_INDEX)
+    return get_number_one_hot(state, gm.RIGHT_INDEX)
 
 def get_bottom_number(state):
-    return get_number(state, Game.BOTTOM_INDEX)
+    return get_number(state, gm.BOTTOM_INDEX)
 
 def get_bottom_number_one_hot(state):
-    return get_number_one_hot(state, Game.BOTTOM_INDEX)
+    return get_number_one_hot(state, gm.BOTTOM_INDEX)
 
 def get_left_number(state):
-    return get_number(state, Game.LEFT_INDEX)
+    return get_number(state, gm.LEFT_INDEX)
 
 def get_left_number_one_hot(state):
-    return get_number_one_hot(state, Game.LEFT_INDEX)
+    return get_number_one_hot(state, gm.LEFT_INDEX)
 
 
 def get_position(state):
-    result = np.zeros((11, 2 * Game.START_HANDS))
-    for i in range(2 * Game.START_HANDS):
-        if i < Game.START_HANDS:
+    result = np.zeros((11, 2 * gm.START_HANDS))
+    for i in range(2 * gm.START_HANDS):
+        if i < gm.START_HANDS:
             card = state.left_cards[i]
         else:
-            card = state.right_cards[i - Game.START_HANDS]
+            card = state.right_cards[i - gm.START_HANDS]
         
         if state.on_Board(*card.position):
-            result[card.position[0] + card.position[1] * Game.BOARD_SIZE, i] = 1
-        elif card.owner == Game.LEFT_PLAYER:
+            result[card.position[0] + card.position[1] * gm.BOARD_SIZE, i] = 1
+        elif card.owner == gm.LEFT_PLAYER:
             result[9, i] = 1
-        elif card.owner == Game.RIGHT_PLAYER:
+        elif card.owner == gm.RIGHT_PLAYER:
             result[10, i] = 1
     return result    
 
 def get_owner(state):
-    result = np.zeros((1, 2 * Game.START_HANDS))
-    for i in range(2 * Game.START_HANDS):
-        if i < Game.START_HANDS:
+    result = np.zeros((1, 2 * gm.START_HANDS))
+    for i in range(2 * gm.START_HANDS):
+        if i < gm.START_HANDS:
             card = state.left_cards[i]
         else:
-            card = state.right_cards[i - Game.START_HANDS]
+            card = state.right_cards[i - gm.START_HANDS]
         
-        result[0, i] = (card.owner == Game.LEFT_PLAYER)
+        result[0, i] = (card.owner == gm.LEFT_PLAYER)
     return result    
 
 def get_player(state):
-    return np.ones((1, 2 * Game.START_HANDS)) * (state.current_player == Game.LEFT_PLAYER)
+    return np.ones((1, 2 * gm.START_HANDS)) * (state.current_player == gm.LEFT_PLAYER)
 
 def get_rank(state):
-    result = np.zeros((1, 2 * Game.START_HANDS))
-    for i in range(2 * Game.START_HANDS):
-        if i < Game.START_HANDS:
+    result = np.zeros((1, 2 * gm.START_HANDS))
+    for i in range(2 * gm.START_HANDS):
+        if i < gm.START_HANDS:
             card = state.left_cards[i]
         else:
-            card = state.right_cards[i - Game.START_HANDS]
+            card = state.right_cards[i - gm.START_HANDS]
         
         if not card.visible and card.owner != state.current_player:
             result[0, i] = 0
@@ -100,12 +102,12 @@ def get_rank(state):
     return result    
 
 def get_rank_one_hot(state):
-    result = np.zeros((Game.MAX_RANK_LEVEL + 1, 2 * Game.START_HANDS))
-    for i in range(2 * Game.START_HANDS):
-        if i < Game.START_HANDS:
+    result = np.zeros((gm.MAX_RANK_LEVEL + 1, 2 * gm.START_HANDS))
+    for i in range(2 * gm.START_HANDS):
+        if i < gm.START_HANDS:
             card = state.left_cards[i]
         else:
-            card = state.right_cards[i - Game.START_HANDS]
+            card = state.right_cards[i - gm.START_HANDS]
         
         if (not card.visible and card.owner != state.current_player) or card.get_rank() < 1:
             result[0, i] = 1
@@ -115,12 +117,12 @@ def get_rank_one_hot(state):
 
 def get_element(state):
     # TODO - To be implemented. This feature is not being used right now
-    result = np.zeros((4, 2 * Game.START_HANDS))
+    result = np.zeros((4, 2 * gm.START_HANDS))
     return result
     
 def get_turn(state):
     # TODO - To be implemented. This feature is not being used right now
-    result = np.zeros((9, 2 * Game.START_HANDS))
+    result = np.zeros((9, 2 * gm.START_HANDS))
     return result
 
 VALID_FEATURES = {
@@ -175,7 +177,7 @@ VALID_FEATURES = {
         "function": get_rank
     },
     "rank_one_hot": {
-        "size": Game.MAX_RANK_LEVEL + 1,
+        "size": gm.MAX_RANK_LEVEL + 1,
         "function": get_rank_one_hot
     },
     "element": {
@@ -214,4 +216,4 @@ def state2feature(state, feature_list=DEFAULT_FEATURES):
             features.append(VALID_FEATURES[feature]["function"](state))
         else:
             raise ValueError("Unknown feature: %s" % feature)
-    return np.concatenate(features, axis = 0).reshape(1, -1, 2 * Game.START_HANDS)
+    return np.concatenate(features, axis = 0).reshape(1, -1, 2 * gm.START_HANDS)

@@ -1,8 +1,11 @@
-from TripleTriad.mc_train import *
 from TripleTriad.player.NNPolicy import NNPolicy
-from keras.optimizers import SGD
+import TripleTriad.mc_train as mc
+
 import unittest
 import warnings
+
+from keras.optimizers import SGD
+
 
 class TestMCTrainingProcess(unittest.TestCase):
     
@@ -16,7 +19,7 @@ class TestMCTrainingProcess(unittest.TestCase):
         player = NNPolicy()
         opponent = player.clone()
         
-        (states, actions, rewards) = simulate_games(player, opponent, single_meta)
+        (states, actions, rewards) = mc.simulate_games(player, opponent, single_meta)
         self.assertTrue(len(states) == 1 and len(actions) == 1 and len(rewards) == 1)
         self.assertTrue(len(states[0]) == 4 or len(states[0]) == 5)
         self.assertTrue(len(actions[0]) == len(states[0]) and len(rewards[0]) == len(states[0]))
@@ -32,9 +35,9 @@ class TestMCTrainingProcess(unittest.TestCase):
         player = NNPolicy()
         opponent = player.clone()
         optimizer = SGD(lr=single_meta["learning_rate"])
-        player.model.compile(loss=log_loss, optimizer=optimizer)
-        (states, actions, rewards) = simulate_games(player, opponent, single_meta)   
-        train_on_results(player, states, actions, rewards)
+        player.model.compile(loss=mc.log_loss, optimizer=optimizer)
+        (states, actions, rewards) = mc.simulate_games(player, opponent, single_meta)   
+        mc.train_on_results(player, states, actions, rewards)
         
     def test_train_multi_games(self):
         num_games_batch = 20
@@ -48,7 +51,7 @@ class TestMCTrainingProcess(unittest.TestCase):
         player = NNPolicy()
         opponent = player.clone()
         
-        (states, actions, rewards) = simulate_games(player, opponent, multi_meta)
+        (states, actions, rewards) = mc.simulate_games(player, opponent, multi_meta)
         
         self.assertTrue(len(states) == num_games_batch and len(actions) == num_games_batch and len(rewards) == num_games_batch)
         # Ensure both player got almost equal chance of playing first
@@ -67,8 +70,8 @@ class TestMCTrainingProcess(unittest.TestCase):
             warnings.warn('Abnormal results: {} games won, {} games tie, {} lost'.format(games_won, games_tie, games_lost))
         
         optimizer = SGD(lr=multi_meta["learning_rate"])
-        player.model.compile(loss=log_loss, optimizer=optimizer)
-        train_on_results(player, states, actions, rewards)
+        player.model.compile(loss=mc.log_loss, optimizer=optimizer)
+        mc.train_on_results(player, states, actions, rewards)
 
             
 if __name__ == '__main__':

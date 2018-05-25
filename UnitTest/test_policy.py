@@ -1,10 +1,11 @@
 from TripleTriad.player.NNPolicy import NNPolicy
-from TripleTriad.game import *
+from TripleTriad.game import GameState
 import TripleTriad.game_helper as Helper
-import TripleTriad.feature as FE
-import unittest
+import TripleTriad.feature as fe
 
+import unittest
 import numpy as np
+
 from keras.models import Sequential
 from keras.layers import Dense, Dropout
 
@@ -12,11 +13,11 @@ class TestPolicy(unittest.TestCase):
     
     def test_nn_weights(self):
         player = NNPolicy()
-        self.assertTrue(player.model.get_weights()[0].shape == tuple(reversed((FE.get_feature_dim(player.features), player.params["card_number"]))))
+        self.assertTrue(player.model.get_weights()[0].shape == tuple(reversed((fe.get_feature_dim(player.features), player.params["card_number"]))))
         
     def test_get_action(self):
         player = NNPolicy()
-        input = np.zeros((1, FE.get_feature_dim(player.features), player.params["card_number"]))
+        input = np.zeros((1, fe.get_feature_dim(player.features), player.params["card_number"]))
         
         game = GameState()
         while(not game.is_end_of_game()): 

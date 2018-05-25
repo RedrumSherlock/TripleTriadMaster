@@ -3,12 +3,13 @@ Created on Aug 30, 2017
 
 @author: Mengliao Wang
 '''
+import TripleTriad.game_helper as Helper
+
 import numpy as np
 import warnings
 import random
 import os
 import csv
-import TripleTriad.game_helper as Helper
 
 
 # Left-hand side player and Right-hand side player 
@@ -75,7 +76,7 @@ class GameState(object):
         
         # If no cards were given, randomly choose 5 from the card set. Also set their owner to be left player
         if self.left_cards is None or len(self.left_cards) == 0:
-            self.left_cards = random.sample(load_cards_from_file(self.path, self.left_file), START_HANDS)
+            self.left_cards = random.sample(self.load_cards_from_file(self.path, self.left_file), START_HANDS)
         elif len(self.left_cards) != START_HANDS:
             self.left_cards = random.sample(self.left_cards, START_HANDS)
         for card in self.left_cards:
@@ -84,7 +85,7 @@ class GameState(object):
         
         # Same as above but for right player
         if self.right_cards is None or len(self.right_cards) == 0:
-            self.right_cards = random.sample(load_cards_from_file(self.path, self.right_file), START_HANDS)
+            self.right_cards = random.sample(self.load_cards_from_file(self.path, self.right_file), START_HANDS)
         elif len(self.right_cards) != START_HANDS:
             self.right_cards = random.sample(self.right_cards, START_HANDS)
         for card in self.right_cards:
@@ -247,6 +248,20 @@ class GameState(object):
             print(mid_line)
             print(bot_line)
         print("-------------------------------")
+    
+    @staticmethod
+    def load_cards_from_file(path, file_name):
+        card_list = []
+        with open(os.path.join(path,file_name), 'rt') as file:
+            cards = csv.DictReader(file)
+            for card in cards:
+                card_list.append( Card(
+                    numbers = [ int(card['top']), int(card['right']), int(card['bottom']), int(card['left']) ],
+                    name = card['name'],
+                    rank = card['rank'],
+                    element = card['element']
+                    ) )   
+        return card_list  
         
 class Card(object):
 
@@ -300,16 +315,5 @@ class Card(object):
         self.position = position
 
 
-def load_cards_from_file(path, file_name):
-    card_list = []
-    with open(os.path.join(path,file_name), 'rt') as file:
-        cards = csv.DictReader(file)
-        for card in cards:
-            card_list.append( Card(
-                numbers = [ int(card['top']), int(card['right']), int(card['bottom']), int(card['left']) ],
-                name = card['name'],
-                rank = card['rank'],
-                element = card['element']
-                ) )   
-    return card_list  
+
      

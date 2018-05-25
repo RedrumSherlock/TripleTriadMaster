@@ -1,21 +1,24 @@
+import TripleTriad.feature as fe
+import TripleTriad.game as gm
+from TripleTriad.player.policy import Policy
+import TripleTriad.game_helper as Helper
+
 import numpy as np
 import random
 import copy
-import TripleTriad.feature as FE
-import TripleTriad.game as Game
-from TripleTriad.player.policy import Policy
-import TripleTriad.game_helper as Helper
+import json
+
 from keras.models import Sequential, Model, model_from_json, clone_model
 from keras.layers import convolutional, merge, Input, BatchNormalization, Dense
 from keras.layers.core import Activation, Flatten
 from keras.engine.topology import Layer
 from keras import backend as K
-import json
+
 
 DEFAULT_NN_PARAMETERS = {
     "layers": 3,
-    "card_number": 2 * Game.START_HANDS,
-    "output_dim": 2 * Game.START_HANDS + Game.BOARD_SIZE * Game.BOARD_SIZE,
+    "card_number": 2 * gm.START_HANDS,
+    "output_dim": 2 * gm.START_HANDS + gm.BOARD_SIZE ** 2,
     "activation": "relu",
     "output_activation": "softmax"
     }
@@ -24,7 +27,7 @@ DEFAULT_MODEL_OUTPUT_PATH = "test_nn_model.json"
 
 class NNPolicy(Policy):
     
-    def __init__(self, params = DEFAULT_NN_PARAMETERS, features = FE.DEFAULT_FEATURES, model_save_path = DEFAULT_MODEL_OUTPUT_PATH, 
+    def __init__(self, params = DEFAULT_NN_PARAMETERS, features = fe.DEFAULT_feATURES, model_save_path = DEFAULT_MODEL_OUTPUT_PATH, 
                  model_load_path = None):
         self.params = params 
         self.features = features
@@ -39,11 +42,11 @@ class NNPolicy(Policy):
         
         # Draft Network Architecture for testing purpose
         # TODO - replace with a real architecture
-        network.add(Dense(FE.get_feature_dim(self.features),
-            input_shape=(FE.get_feature_dim(self.features), self.params["card_number"]),
+        network.add(Dense(fe.get_feature_dim(self.features),
+            input_shape=(fe.get_feature_dim(self.features), self.params["card_number"]),
             activation=self.params["activation"]))
         for _ in range(self.params["layers"]):
-            network.add(Dense(FE.get_feature_dim(self.features),
+            network.add(Dense(fe.get_feature_dim(self.features),
                               activation=self.params["activation"]))
         network.add(Flatten())
         network.add(Dense(self.params["output_dim"]))
@@ -63,10 +66,10 @@ class NNPolicy(Policy):
         # This will return the (card, move) pair, where card is the Card object, and move is the (x, y) tuple
         if card_index < 0 or board_index < 0:
             (card_index, board_index) = self.GreedyPlay(state, self.nn_output_normalize(state))
-        return ( (state.left_cards + state.right_cards)[card_index], Helper.idx2tuple(board_index, Game.BOARD_SIZE) )
+        return ( (state.left_cards + state.right_cards)[card_index], Helper.idx2tuple(board_index, gm.BOARD_SIZE) )
         
     def nn_output_normalize(self, state):
-        output = self.forward(FE.state2feature(state, self.features))
+        output = self.forward(fe.state2feature(state, self.features))
         mask = np.reshape(state.get_unplayed_cards_by_index() + state.get_legal_moves_by_index(), (1, -1))
         return (output * mask)[0].flatten()
                 
@@ -123,11 +126,11 @@ class NNPolicy(Policy):
     # Or like this for probabilistic case: [0.05, 0.15, 0, 0.05, 0.75, 0, 0, 0, 0, 0,    0.02, 0, 0.12, 0.68, 0, 0.08, 0.1, 0, 0]
     # This example means we will pick the 5th card from the left player's hands, and place on the (0, 1) cell on the board
 
-        if len(action) != 2 * Game.START_HANDS + Game.BOARD_SIZE ** 2:
-            raise ValueError("The action must have {} dimensions, but instead it has {} dimensions".format(2 * Game.START_HANDS + \
-                Game.BOARD_SIZE ** 2, len(action)))
-        card_index = np.argmax(action[:2 * Game.START_HANDS], axis = 0)
-        board_index = np.argmax(action[2 * Game.START_HANDS:], axis = 0)
+        if len(action) != 2 * gm.START_HANDS + gm.BOARD_SIZE ** 2:
+            raise ValueError("The action must have {} dimensions, but instead it has {} dimensions".format(2 * gm.START_HANDS + \
+                gm.BOARD_SIZE ** 2, len(action)))
+        card_index = np.argmax(action[:2 * gm.START_HANDS], axis = 0)
+        board_index = np.argmax(action[2 * gm.START_HANDS:], axis = 0)
     
         return (card_index, board_index)
    

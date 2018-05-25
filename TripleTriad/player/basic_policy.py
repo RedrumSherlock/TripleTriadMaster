@@ -1,8 +1,9 @@
 import TripleTriad.game_helper as Helper
-import TripleTriad.game as Game
 from TripleTriad.player.policy import Policy
+
 import numpy as np
 import random
+
 
 class BasicPolicy(Policy):
     """

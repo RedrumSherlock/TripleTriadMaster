@@ -1,16 +1,18 @@
+import TripleTriad.game as gm
+from TripleTriad.player.NNPolicy import NNPolicy
+import TripleTriad.feature as fe
+import TripleTriad.game_helper as Helper
+
 import os
 import json
 import re
 import numpy as np
 import random
 from shutil import copyfile
+
 from keras.optimizers import SGD
 import keras.backend as K
-from TripleTriad.game import GameState
-import TripleTriad.game as Game
-from TripleTriad.player.NNPolicy import NNPolicy
-import TripleTriad.feature as FE
-import TripleTriad.game_helper as Helper
+
 
 ZEROTH_FILE = "weights.00000.hdf5"
  
@@ -51,22 +53,22 @@ def simulate_games(player, opponent, metadata):
     
     # Learner is always the left player, and the opponent picked from the pool is always the right player
     # Game will start randomly by left or right player by a 50/50
-    left_card_set = Game.load_cards_from_file(metadata["out_directory"], metadata["card_set"])
-    right_card_set = Game.load_cards_from_file(metadata["out_directory"], metadata["card_set"])
+    left_card_set = gm.GameState.load_cards_from_file(metadata["out_directory"], metadata["card_set"])
+    right_card_set = gm.GameState.load_cards_from_file(metadata["out_directory"], metadata["card_set"])
     
     for i in range(metadata["game_batch"]):
-        left_cards = random.sample(left_card_set, Game.START_HANDS)
-        right_cards = random.sample(right_card_set, Game.START_HANDS)
+        left_cards = random.sample(left_card_set, gm.START_HANDS)
+        right_cards = random.sample(right_card_set, gm.START_HANDS)
             
-        new_game = GameState(left_cards = left_cards, right_cards = right_cards)
+        new_game = gm.GameState(left_cards = left_cards, right_cards = right_cards)
         
         while(not new_game.is_end_of_game()):
-            if new_game.current_player == Game.LEFT_PLAYER:
+            if new_game.current_player == gm.LEFT_PLAYER:
                 # Record all the moves made by the learner
                 (card_index, board_index) = player.GreedyPlay(new_game, player.nn_output_normalize(new_game))
-                action = Helper.indices2onehot(card_index, board_index, Game.BOARD_SIZE, Game.START_HANDS)
+                action = Helper.indices2onehot(card_index, board_index, gm.BOARD_SIZE, gm.START_HANDS)
                 (card, move) = player.get_action(new_game, card_index, board_index)
-                states[i].append(FE.state2feature(new_game))
+                states[i].append(fe.state2feature(new_game))
                 actions[i].append(action)
                 rewards[i].append(1)
             else:
@@ -95,7 +97,7 @@ def run_training(cmd_line_args=None):
     parser.add_argument("--record-every", help="Save learner's weights every n batches (Default: 1)", type=int, default=1)
     parser.add_argument("--game-batch", help="Number of games per mini-batch (Default: 20)", type=int, default=20)
     parser.add_argument("--iterations", help="Number of training batches/iterations (Default: 10000)", type=int, default=10000)
-    parser.add_argument("--card-set", help="Number of training batches/iterations (Default: {})".format(Game.DEFAULT_CARDS_FILE), default=Game.DEFAULT_CARDS_FILE)
+    parser.add_argument("--card-set", help="Number of training batches/iterations (Default: {})".format(gm.DEFAULT_CARDS_FILE), default=gm.DEFAULT_CARDS_FILE)
     parser.add_argument("--verbose", "-v", help="Turn on verbose mode", default=True, action="store_true")
     
     # Baseline function (TODO) default lambda state: 0  (receives either file
