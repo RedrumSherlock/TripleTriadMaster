@@ -53,12 +53,12 @@ def simulate_games(player, opponent, metadata):
     
     # Learner is always the left player, and the opponent picked from the pool is always the right player
     # Game will start randomly by left or right player by a 50/50
-    left_card_set = gm.GameState.load_cards_from_file(metadata["out_directory"], metadata["card_set"])
-    right_card_set = gm.GameState.load_cards_from_file(metadata["out_directory"], metadata["card_set"])
+    left_card_file = gm.GameState.load_cards_from_file(metadata["card_path"], metadata["card_file"])
+    right_card_file = gm.GameState.load_cards_from_file(metadata["card_path"], metadata["card_file"])
     
     for i in range(metadata["game_batch"]):
-        left_cards = random.sample(left_card_set, gm.START_HANDS)
-        right_cards = random.sample(right_card_set, gm.START_HANDS)
+        left_cards = random.sample(left_card_file, gm.START_HANDS)
+        right_cards = random.sample(right_card_file, gm.START_HANDS)
             
         new_game = gm.GameState(left_cards = left_cards, right_cards = right_cards)
         
@@ -97,7 +97,8 @@ def run_training(cmd_line_args=None):
     parser.add_argument("--record-every", help="Save learner's weights every n batches (Default: 1)", type=int, default=1)
     parser.add_argument("--game-batch", help="Number of games per mini-batch (Default: 20)", type=int, default=20)
     parser.add_argument("--iterations", help="Number of training batches/iterations (Default: 10000)", type=int, default=10000)
-    parser.add_argument("--card-set", help="Number of training batches/iterations (Default: {})".format(gm.DEFAULT_CARDS_FILE), default=gm.DEFAULT_CARDS_FILE)
+    parser.add_argument("--card-path", help="The directory with the card set file (Default: {})".format(gm.DEFAULT_PATH), default=gm.DEFAULT_PATH)
+    parser.add_argument("--card-file", help="The file containing the cards to play with (Default: {})".format(gm.DEFAULT_CARDS_FILE), default=gm.DEFAULT_CARDS_FILE)
     parser.add_argument("--verbose", "-v", help="Turn on verbose mode", default=True, action="store_true")
     
     # Baseline function (TODO) default lambda state: 0  (receives either file
@@ -115,8 +116,8 @@ def run_training(cmd_line_args=None):
         os.makedirs(args.out_directory)
     
     
-    if not os.path.exists(os.path.join(args.out_directory, args.card_set)):
-        raise ValueError("Cannot resume without card file {} in the output directory".format(args.card_set))
+    if not os.path.exists(os.path.join(args.card_path, args.card_file)):
+        raise ValueError("Cannot resume without card file {} in the directory {}".format(args.card_file, args.card_path))
             
                 
     if not args.resume:
@@ -128,7 +129,8 @@ def run_training(cmd_line_args=None):
             "learning_rate": args.learning_rate,
             "game_batch": args.game_batch,
             "save_every": args.save_every,
-            "card_set": args.card_set,
+            "card_path": args.card_path,
+            "card_file": args.card_file,
             "opponents": [ZEROTH_FILE],  # which weights from which to sample an opponent each batch
             "num_wins": {}  # number of wins for player in each batch
         }
@@ -136,6 +138,7 @@ def run_training(cmd_line_args=None):
         iter_start = 1
         player = NNPolicy()
         save_metadata(metadata, args.out_directory, "metadata.json")
+        player.model.save_model()
         # Create the Zeroth weight file
         player.model.save_weights(os.path.join(args.out_directory, player_weights))
     else:

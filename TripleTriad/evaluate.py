@@ -1,28 +1,40 @@
 from TripleTriad.player.policy import RandomPolicy
 from TripleTriad.player.basic_policy import BasicPolicy, BaselinePolicy
+from TripleTriad.player.NNPolicy import NNPolicy
 from TripleTriad.game_helper import timer
 import TripleTriad.game as gm
 
 import random
+import os
+import json
 
 
 def evaluate_nn_policy():
     """
-    To evaluate the training process
+    To evaluate the results gained from the training process. It can be run in parallel when the training is happening.
+    There should be a metadata.json file for the metadata of training process, a model.json for the model trained, 
+    and at least one weights.%05d.hdf5 weight file in the output directory from the training process.
     """
     import argparse
     parser = argparse.ArgumentParser(description='Compare the trained NN policy to our manually crafted baseline policy')
     parser.add_argument("directory", help="Path to folder where the model params and metadata was saved from training.")
-    parser.add_argument("--resume", help="Load latest weights in out_directory and resume", default=False, action="store_true")
-    parser.add_argument("--model-json", help="JSON file for policy model in the output directory.", default = "model.json")
-    parser.add_argument("--initial-weights", help="Path to HDF5 file with inital weights (i.e. result of supervised training).", default = ZEROTH_FILE)
-    parser.add_argument("--learning-rate", help="Keras learning rate (Default: 0.001)", type=float, default=0.001)
-    parser.add_argument("--save-every", help="Save policy as a new opponent every n batches (Default: 500)", type=int, default=500)
-    parser.add_argument("--record-every", help="Save learner's weights every n batches (Default: 1)", type=int, default=1)
-    parser.add_argument("--game-batch", help="Number of games per mini-batch (Default: 20)", type=int, default=20)
-    parser.add_argument("--iterations", help="Number of training batches/iterations (Default: 10000)", type=int, default=10000)
-    parser.add_argument("--card-set", help="Number of training batches/iterations (Default: {})".format(Game.DEFAULT_CARDS_FILE), default=Game.DEFAULT_CARDS_FILE)
+    parser.add_argument("metadata-file", help="The meta data file to be loaded")
+    parser.add_argument("weight-file", help="The weight file to be loaded to the model")
+    parser.add_argument("--plot", help="Plot the evaluation results", default=True, action="store_true")
+    parser.add_argument("--num-games", help="Number of games to play for evaluation", type=int, default=10000)
+    parser.add_argument("--card-path", help="The directory with the card set file (Default: {})".format(gm.DEFAULT_PATH), default=gm.DEFAULT_PATH)
+    parser.add_argument("--card-file", help="The file containing the cards to play with (Default: {})".format(gm.DEFAULT_CARDS_FILE), default=gm.DEFAULT_CARDS_FILE)
     parser.add_argument("--verbose", "-v", help="Turn on verbose mode", default=True, action="store_true")
+    args = parser.parse_args()
+    
+    with open(os.path.join(args.directory, args.metadata_file), "r") as f:
+        metadata = json.load(f)
+    
+    with open(os.path.join(args.directory, metadata["model_file"]), "r") as f:
+        player = NNPolicy(model_load_path = os.path.join())
+    
+    opponent = BaselinePolicy()
+    compare_policy(player, opponent, args.num_games, args.card_path, args.card_file)
 
 def evaluate_basic_policy():
     player = BasicPolicy()
