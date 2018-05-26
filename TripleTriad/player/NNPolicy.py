@@ -23,11 +23,11 @@ DEFAULT_NN_PARAMETERS = {
     "output_activation": "softmax"
     }
 
-DEFAULT_MODEL_OUTPUT_PATH = "test_nn_model.json"
+DEFAULT_MODEL_OUTPUT_PATH = "model.json"
 
 class NNPolicy(Policy):
     
-    def __init__(self, params = DEFAULT_NN_PARAMETERS, features = fe.DEFAULT_feATURES, model_save_path = DEFAULT_MODEL_OUTPUT_PATH, 
+    def __init__(self, params = DEFAULT_NN_PARAMETERS, features = fe.DEFAULT_FEATURES, model_save_path = DEFAULT_MODEL_OUTPUT_PATH, 
                  model_load_path = None):
         self.params = params 
         self.features = features

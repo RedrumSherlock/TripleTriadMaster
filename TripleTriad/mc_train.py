@@ -136,9 +136,9 @@ def run_training(cmd_line_args=None):
         }
         player_weights = ZEROTH_FILE
         iter_start = 1
-        player = NNPolicy()
+        player = NNPolicy(model_save_path = os.path.join(args.out_directory, args.model_json))
         save_metadata(metadata, args.out_directory, "metadata.json")
-        player.model.save_model()
+        player.save_model()
         # Create the Zeroth weight file
         player.model.save_weights(os.path.join(args.out_directory, player_weights))
     else:

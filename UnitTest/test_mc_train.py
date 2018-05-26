@@ -14,7 +14,8 @@ class TestMCTrainingProcess(unittest.TestCase):
             "game_batch": 1,
             "num_wins": {},
             "out_directory": "test_cards",
-            "card_set": "cards.csv"
+            "card_path": "test_cards",
+            "card_file": "cards.csv"
             }
         player = NNPolicy()
         opponent = player.clone()
@@ -29,7 +30,8 @@ class TestMCTrainingProcess(unittest.TestCase):
             "game_batch": 1,
             "num_wins": {},
             "out_directory": "test_cards",
-            "card_set": "cards.csv",
+            "card_path": "test_cards",
+            "card_file": "cards.csv",
             "learning_rate": 0.001
             }
         player = NNPolicy()
@@ -45,7 +47,8 @@ class TestMCTrainingProcess(unittest.TestCase):
             "game_batch": num_games_batch,
             "num_wins": {},
             "out_directory": "test_cards",
-            "card_set": "cards.csv",
+            "card_path": "test_cards",
+            "card_file": "cards.csv",
             "learning_rate": 0.001
             }
         player = NNPolicy()
