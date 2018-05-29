@@ -10,17 +10,19 @@ import json
 
 from keras.models import Sequential, Model, model_from_json, clone_model
 from keras.layers import convolutional, merge, Input, BatchNormalization, Dense
-from keras.layers.core import Activation, Flatten
+from keras.layers.core import Activation, Flatten, Dropout
 from keras.engine.topology import Layer
 from keras import backend as K
 
 
 DEFAULT_NN_PARAMETERS = {
     "layers": 3,
+    "units": 120,
     "card_number": 2 * gm.START_HANDS,
     "output_dim": 2 * gm.START_HANDS + gm.BOARD_SIZE ** 2,
     "activation": "relu",
-    "output_activation": "softmax"
+    "output_activation": "softmax",
+    "dropout": 0.25
     }
 
 DEFAULT_MODEL_OUTPUT_PATH = "model.json"
@@ -41,13 +43,18 @@ class NNPolicy(Policy):
         network = Sequential()
         
         # Draft Network Architecture for testing purpose
-        # TODO - replace with a real architecture
-        network.add(Dense(fe.get_feature_dim(self.features),
+        # Input: 17x10 size
+        # Try with 3 hidden layers for now. Each layer has 120 units with a dropout rate at 0.25 and relu as the activation layer
+        # Use Flatten to map to a one dimension output with size 19 (first 10 maps to the cards to pick, and the last 9 map to the board 
+        # to drop the card)
+        
+        network.add(Dense(self.params["units"],
             input_shape=(fe.get_feature_dim(self.features), self.params["card_number"]),
             activation=self.params["activation"]))
         for _ in range(self.params["layers"]):
             network.add(Dense(fe.get_feature_dim(self.features),
                               activation=self.params["activation"]))
+            network.add(Dropout(self.params["dropout"]))
         network.add(Flatten())
         network.add(Dense(self.params["output_dim"]))
         network.add(Bias())
