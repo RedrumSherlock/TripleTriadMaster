@@ -44,21 +44,22 @@ def state_action_generator(target_policy, metadata):
         metadata: a dictionary which contains the meta data for this training process
         
     Yields:
-        states: a list with n elements, where n is the number of games (in each batch) specified by game_batch in metadata. Each element is another list
-                with m elements, where m is the moves made in this game by the player (we only train based on the player actions, not the opponent). Each 
-                element in this list is the game feature (basically a ndarray with size 1xDIMx10. DIM is the dimension of all selected features for each card)
-        actions: Similar to the states, a list of list for each game, and the element in the inner list is a one-hot vector representing the action (a 1xn 
-                ndarray where n=2*HAND_SIZE + BOARD_SIZE**2. The number one in this array represents the move, i.e. from a hand index to a board index)
+        states: a nparray with shape (n, dim, 10). Here n is batch_size*9 (total steps for each game is 9). dim is the dimension of all selected features for each card,
+                and 10 is for each card in both hands.
+        cards: a nparray with shape (n, 10). Here n is batch_size*9 (total steps for each game is 9). The second dimension is a one-hot vector specifying which card to pick.
+        moves: a nparray with shape (n, 9). Here n is batch_size*9 (total steps for each game is 9). The second dimension is a one-hot vector specifying which position on the 
+                board to play the card.
     """
     
-    all_states = []
-    all_cards = []
-    all_moves = []
+
     
     left_card_file = gm.GameState.load_cards_from_file(metadata["card_path"], metadata["card_file"])
     right_card_file = gm.GameState.load_cards_from_file(metadata["card_path"], metadata["card_file"])
         
     while True:
+        all_states = []
+        all_cards = []
+        all_moves = []
         for idx in range(metadata["batch_size"]):
             left_cards = random.sample(left_card_file, gm.START_HANDS)
             right_cards = random.sample(right_card_file, gm.START_HANDS)
@@ -74,6 +75,9 @@ def state_action_generator(target_policy, metadata):
         yield (np_states.reshape((-1,) + np_states.shape[2:]), \
             {"card_output": np.array(np_cards.reshape((-1,) + np_cards.shape[2:])), \
              "move_output": np.array(np_moves.reshape((-1,) + np_moves.shape[2:]))})
+        del all_states
+        del all_cards
+        del all_moves
 
 
 def run_training():
