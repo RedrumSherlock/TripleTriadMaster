@@ -23,10 +23,6 @@ def log_loss(y_true, y_pred):
     '''
     return -y_true * K.log(K.clip(y_pred, K.epsilon(), 1.0 - K.epsilon()))
 
-
-def save_metadata(metadata, directory, filename):
-    with open(os.path.join(directory, filename), "w") as f:
-        json.dump(metadata, f, sort_keys=True, indent=2)
             
 @Helper.timer            
 def simulate_games(player, opponent, metadata):
@@ -97,8 +93,8 @@ def run_training(cmd_line_args=None):
     parser.add_argument("--learning-rate", help="Keras learning rate (Default: 0.001)", type=float, default=0.001)
     parser.add_argument("--save-every", help="Save policy as a new opponent every n batches (Default: 500)", type=int, default=500)
     parser.add_argument("--record-every", help="Save learner's weights every n batches (Default: 1)", type=int, default=1)
-    parser.add_argument("--game-batch", help="Number of games per mini-batch (Default: 200)", type=int, default=200)
-    parser.add_argument("--iterations", help="Number of training batches/iterations (Default: 1000)", type=int, default=1000)
+    parser.add_argument("--game-batch", help="Number of games per mini-batch (Default: 200)", type=int, default=1000)
+    parser.add_argument("--iterations", help="Number of training batches/iterations (Default: 1000)", type=int, default=500)
     parser.add_argument("--card-path", help="The directory with the card set file (Default: {})".format(gm.DEFAULT_PATH), default=gm.DEFAULT_PATH)
     parser.add_argument("--card-file", help="The file containing the cards to play with (Default: {})".format(gm.DEFAULT_CARDS_FILE), default=gm.DEFAULT_CARDS_FILE)
     parser.add_argument("--verbose", "-v", help="Turn on verbose mode", default=True, action="store_true")
@@ -139,7 +135,7 @@ def run_training(cmd_line_args=None):
         player_weights = ZEROTH_FILE
         iter_start = 1
         player = NNPolicy(model_save_path = os.path.join(args.out_directory, args.model_json))
-        save_metadata(metadata, args.out_directory, "metadata.json")
+        Helper.save_metadata(metadata, args.out_directory, "metadata.json")
         player.save_model()
         # Create the Zeroth weight file
         player.model.save_weights(os.path.join(args.out_directory, player_weights))
@@ -218,7 +214,7 @@ def run_training(cmd_line_args=None):
         # Add player to batch of oppenents once in a while.
         if i_iter % args.save_every == 0:
             metadata["opponents"].append(player_weights)
-        save_metadata(metadata, args.out_directory, "metadata.json")
+        Helper.save_metadata(metadata, args.out_directory, "metadata.json")
 
 
 if __name__ == '__main__':

@@ -1,6 +1,7 @@
 import numpy as np
 import time
-
+import json
+import os
 
 def tuple2idx(board_size, x_pos, y_pos):
     return x_pos + y_pos * board_size
@@ -33,12 +34,16 @@ def is_corner(x_pos, y_pos):
 def is_side(x_pos, y_pos):
     return (x_pos == 1 or y_pos == 1) and not (x_pos == 1 and y_pos == 1)
 
+def save_metadata(metadata, directory, filename):
+    with open(os.path.join(directory, filename), "w") as f:
+        json.dump(metadata, f, sort_keys=True, indent=2)
+
 def timer(func):
     def timing(*args, **kwargs):
         start = time.time()
         result = func(*args, **kwargs)
         end = time.time()
-        print("{} ran for {} seconds".format(func.__name__, end - start))
+        print("{} ran for {:.3f} seconds".format(func.__name__, end - start))
         return result
     
     return timing

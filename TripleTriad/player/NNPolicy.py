@@ -19,7 +19,8 @@ DEFAULT_NN_PARAMETERS = {
     "layers": 3,
     "units": 120,
     "card_number": 2 * gm.START_HANDS,
-    "output_dim": 2 * gm.START_HANDS + gm.BOARD_SIZE ** 2,
+    "output_dim1": 2 * gm.START_HANDS,
+    "output_dim2": gm.BOARD_SIZE ** 2,
     "activation": "relu",
     "output_activation": "softmax",
     "dropout": 0.25
@@ -40,27 +41,32 @@ class NNPolicy(Policy):
             self.model = self.create_neural_network()
     
     def create_neural_network(self):
-        network = Sequential()
         
-        # Draft Network Architecture for testing purpose
-        # Input: 17x10 size
-        # Try with 3 hidden layers for now. Each layer has 120 units with a dropout rate at 0.25 and relu as the activation layer
-        # Use Flatten to map to a one dimension output with size 19 (first 10 maps to the cards to pick, and the last 9 map to the board 
-        # to drop the card)
+        """
+        Draft Network Architecture for testing purpose
+        Input: 17x10 size
         
-        network.add(Dense(self.params["units"],
-            input_shape=(fe.get_feature_dim(self.features), self.params["card_number"]),
-            activation=self.params["activation"]))
-        for _ in range(self.params["layers"]):
-            network.add(Dense(fe.get_feature_dim(self.features),
-                              activation=self.params["activation"]))
-            network.add(Dropout(self.params["dropout"]))
-        network.add(Flatten())
-        network.add(Dense(self.params["output_dim"]))
-        network.add(Bias())
-        network.add(Activation(self.params["output_activation"]))
+        Try with 3 hidden layers for now. Each layer has 120 units with a dropout rate at 0.25 and relu as the activation layer
+        Use Flatten to map to a one dimension output with size 19 (first 10 maps to the cards to pick, and the last 9 map to the board 
+        to drop the card)
+        
+        There should be two output layers: one for the card and one for the move
+        """
+        
+        state_input = Input(shape = (fe.get_feature_dim(self.features), self.params["card_number"]))
+        x = Dense(self.params["units"], activation=self.params["activation"], name="Hidden_0")(state_input)
+        for i in range(self.params["layers"]):
+            x = Dense(self.params["units"], activation=self.params["activation"], name="Hidden_{}".format(i+1))(x)
+        #    network.add(Dropout(self.params["dropout"]))
+        x = Flatten()(x)
+        card_output = Dense(self.params["output_dim1"], activation=self.params["output_activation"], name='card_output')(x)
+        move_output = Dense(self.params["output_dim2"], activation=self.params["output_activation"], name='move_output')(x)
+        network = Model(input=state_input, output=[card_output, move_output])
         return network
-        
+    
+    def print_network(self):
+        self.model.summary()
+            
     def clone(self):
         new_policy = NNPolicy()
         new_policy.params = self.params.copy()
@@ -76,12 +82,13 @@ class NNPolicy(Policy):
         return ( (state.left_cards + state.right_cards)[card_index], Helper.idx2tuple(board_index, gm.BOARD_SIZE) )
         
     def nn_output_normalize(self, state):
-        output = self.forward(fe.state2feature(state, self.features))
+        [card_output, move_output] = self.forward(fe.state2feature(state, self.features))
+        output = np.concatenate((card_output, move_output), axis=1)
         mask = np.reshape(state.get_unplayed_cards_by_index() + state.get_legal_moves_by_index(), (1, -1))
         return (output * mask)[0].flatten()
                 
     def forward(self, input):   
-        forward_function = K.function([self.model.input, K.learning_phase()], [self.model.output])
+        forward_function = K.function([self.model.input, K.learning_phase()], self.model.output)
         return forward_function([input, 0])
     
     def fit(self, states, actions, won):

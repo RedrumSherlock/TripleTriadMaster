@@ -1,5 +1,6 @@
 from TripleTriad.player.NNPolicy import NNPolicy
-from TripleTriad.game import GameState
+from TripleTriad.player.basic_policy import BaselinePolicy
+import TripleTriad.game as gm
 import TripleTriad.game_helper as Helper
 import TripleTriad.feature as fe
 
@@ -13,19 +14,36 @@ class TestPolicy(unittest.TestCase):
     
     def test_nn_weights(self):
         player = NNPolicy()
-        self.assertTrue(player.model.get_weights()[0].shape == tuple(reversed((fe.get_feature_dim(player.features), player.params["card_number"]))))
+        self.assertTrue(player.model.get_weights()[0].shape == tuple(reversed((player.params["units"], player.params["card_number"]))))
         
     def test_get_action(self):
         player = NNPolicy()
         input = np.zeros((1, fe.get_feature_dim(player.features), player.params["card_number"]))
         
-        game = GameState()
+        game = gm.GameState()
         while(not game.is_end_of_game()): 
             (card, move) = player.get_action(game)
             self.assertTrue(card.position == (-1, -1) and card.owner == game.current_player)
             self.assertTrue(game.board[Helper.tuple2idx(game.board_size, *move)] is None)
             game.play_round(card, *move)
-        
+    
+    def test_action_to_vector(self):
+        player = BaselinePolicy()
+        cards = []
+        moves = []
+        game = gm.GameState()
+        while(not game.is_end_of_game()): 
+            (card, move) = player.get_action(game)
+            (card_vector, move_vector) = player.action_to_vector(game, card, move)
+            self.assertTrue( sum(card_vector) == 1 and sum(move_vector) == 1)
+            cards.append(card_vector)
+            moves.append(move_vector)
+            game.play_round(card, *move)
+        sum_cards = np.sum(np.array(cards), 0)
+        sum_moves = np.sum(np.array(moves), 0)
+        self.assertTrue( np.all( sum_cards <= 1) )
+        self.assertTrue( np.all( sum_moves == 1) )
+         
     def test_save_model(self):
         player = NNPolicy(model_save_path = '/home/mike/tmp/test_nn_model.json')
         player.save_model()

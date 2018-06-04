@@ -217,3 +217,7 @@ def state2feature(state, feature_list=DEFAULT_FEATURES):
         else:
             raise ValueError("Unknown feature: %s" % feature)
     return np.concatenate(features, axis = 0).reshape(1, -1, 2 * gm.START_HANDS)
+
+def feature_without_batch_axis(state, feature_list=DEFAULT_FEATURES):
+    return state2feature(state, feature_list).squeeze()
+

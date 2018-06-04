@@ -262,6 +262,7 @@ class GameState(object):
                     element = card['element']
                     ) )   
         return card_list  
+    
         
 class Card(object):
 

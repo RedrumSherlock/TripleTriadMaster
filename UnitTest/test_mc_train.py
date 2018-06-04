@@ -1,5 +1,5 @@
 from TripleTriad.player.NNPolicy import NNPolicy
-import TripleTriad.mc_train as mc
+import TripleTriad.training.mc_train as mc
 
 import unittest
 import warnings
