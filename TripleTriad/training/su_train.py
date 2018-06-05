@@ -85,7 +85,7 @@ def run_training():
     parser.add_argument("--learning-rate", help="Keras learning rate (Default: 0.05)", type=float, default=0.01)
     parser.add_argument("--epoch", help="Number of epoches for training process (Default: 50)", type=int, default=50)
     parser.add_argument("--step-epoch", help="Number of step per epoch(Default: 1000)", type=int, default=1000)
-    parser.add_argument("--batch-size", help="Number of games to simulate for each batch (Default: 30)", type=int, default=30)
+    parser.add_argument("--batch-size", help="Number of games to simulate for each batch (Default: 10)", type=int, default=10)
     parser.add_argument("--val-steps", help="Number of steps for validation (Default: 100)", type=int, default=100)
     parser.add_argument("--card-path", help="The directory with the card set file (Default: {})".format(gm.DEFAULT_PATH), default=gm.DEFAULT_PATH)
     parser.add_argument("--card-file", help="The file containing the cards to play with (Default: {})".format(gm.DEFAULT_CARDS_FILE), default=gm.DEFAULT_CARDS_FILE)

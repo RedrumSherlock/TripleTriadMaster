@@ -14,11 +14,12 @@ class TestPolicy(unittest.TestCase):
     
     def test_nn_weights(self):
         player = NNPolicy()
-        self.assertTrue(player.model.get_weights()[0].shape == tuple(reversed((player.params["units"], player.params["card_number"]))))
+        self.assertTrue(player.model.get_weights()[0].shape == tuple(reversed((player.params["units"], 2 * gm.START_HANDS))))
+        player.print_network()
         
     def test_get_action(self):
         player = NNPolicy()
-        input = np.zeros((1, fe.get_feature_dim(player.features), player.params["card_number"]))
+        input = np.zeros((1, fe.get_feature_dim(player.features), 2 * gm.START_HANDS))
         
         game = gm.GameState()
         while(not game.is_end_of_game()): 

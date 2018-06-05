@@ -18,9 +18,6 @@ from keras import backend as K
 DEFAULT_NN_PARAMETERS = {
     "layers": 3,
     "units": 120,
-    "card_number": 2 * gm.START_HANDS,
-    "output_dim1": 2 * gm.START_HANDS,
-    "output_dim2": gm.BOARD_SIZE ** 2,
     "activation": "relu",
     "output_activation": "softmax",
     "dropout": 0.25
@@ -53,14 +50,14 @@ class NNPolicy(Policy):
         There should be two output layers: one for the card and one for the move
         """
         
-        state_input = Input(shape = (fe.get_feature_dim(self.features), self.params["card_number"]))
+        state_input = Input(shape = (fe.get_feature_dim(self.features), 2 * gm.START_HANDS))
         x = Dense(self.params["units"], activation=self.params["activation"], name="Hidden_0")(state_input)
         for i in range(self.params["layers"]):
             x = Dense(self.params["units"], activation=self.params["activation"], name="Hidden_{}".format(i+1))(x)
         #    network.add(Dropout(self.params["dropout"]))
         x = Flatten()(x)
-        card_output = Dense(self.params["output_dim1"], activation=self.params["output_activation"], name='card_output')(x)
-        move_output = Dense(self.params["output_dim2"], activation=self.params["output_activation"], name='move_output')(x)
+        card_output = Dense(2 * gm.START_HANDS, activation=self.params["output_activation"], name='card_output')(x)
+        move_output = Dense(gm.BOARD_SIZE ** 2, activation=self.params["output_activation"], name='move_output')(x)
         network = Model(input=state_input, output=[card_output, move_output])
         return network
     
