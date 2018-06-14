@@ -9,18 +9,20 @@ import copy
 import json
 
 from keras.models import Sequential, Model, model_from_json, clone_model
-from keras.layers import convolutional, merge, Input, BatchNormalization, Dense
+from keras.layers import Input, BatchNormalization, Dense, MaxPooling1D, SeparableConv1D
 from keras.layers.core import Activation, Flatten, Dropout
 from keras.engine.topology import Layer
 from keras import backend as K
 
 
 DEFAULT_NN_PARAMETERS = {
-    "layers": 3,
-    "units": 120,
+    "conv_layers": 9,
+    "filters": 128,
+    "dense_layers": 2,
+    "units": 256,
     "activation": "relu",
     "output_activation": "softmax",
-    "dropout": 0.25
+    "dropout": 0
     }
 
 DEFAULT_MODEL_OUTPUT_PATH = "model.json"
@@ -36,12 +38,13 @@ class NNPolicy(Policy):
             self.model = self.load_model(model_load_path)
         else:
             self.model = self.create_neural_network()
+        self.predict_func = K.function([self.model.input, K.learning_phase()], self.model.output)
     
     def create_neural_network(self):
         
         """
         Draft Network Architecture for testing purpose
-        Input: 17x10 size
+        Input: 16x10 size
         
         Try with 3 hidden layers for now. Each layer has 120 units with a dropout rate at 0.25 and relu as the activation layer
         Use Flatten to map to a one dimension output with size 19 (first 10 maps to the cards to pick, and the last 9 map to the board 
@@ -51,13 +54,32 @@ class NNPolicy(Policy):
         """
         
         state_input = Input(shape = (fe.get_feature_dim(self.features), 2 * gm.START_HANDS))
-        x = Dense(self.params["units"], activation=self.params["activation"], name="Hidden_0")(state_input)
-        for i in range(self.params["layers"]):
-            x = Dense(self.params["units"], activation=self.params["activation"], name="Hidden_{}".format(i+1))(x)
-        #    network.add(Dropout(self.params["dropout"]))
+        
+        # Testing for Conv1d layer
+        
+        x = SeparableConv1D(self.params["filters"], 5, padding='same', data_format='channels_first', name="Conv_kernal_5")(state_input)
+        x = BatchNormalization()(x)
+        x = Activation(self.params["activation"])(x)
+        x = MaxPooling1D(padding='same')(x)
+        
+        for i in range(self.params["conv_layers"]):
+            x = SeparableConv1D(self.params["filters"], 3, padding='same', data_format='channels_first', name="Conv1D_{}".format(i+1))(x)
+            x = BatchNormalization()(x)
+            x = Activation(self.params["activation"])(x)
+            x = MaxPooling1D(padding='same')(x)
+        
         x = Flatten()(x)
-        card_output = Dense(2 * gm.START_HANDS, activation=self.params["output_activation"], name='card_output')(x)
-        move_output = Dense(gm.BOARD_SIZE ** 2, activation=self.params["output_activation"], name='move_output')(x)
+            
+        for i in range(self.params["dense_layers"]):
+            x = Dense(self.params["units"], activation=self.params["activation"], name="Dense_{}".format(i+1))(x)
+            if self.params["dropout"] > 0:
+                x = Dropout(self.params["dropout"])(x)
+                
+        
+        x1 = Bias()(x)
+        x2 = Bias()(x)
+        card_output = Dense(2 * gm.START_HANDS, activation=self.params["output_activation"], name='card_output')(x1)
+        move_output = Dense(gm.BOARD_SIZE ** 2, activation=self.params["output_activation"], name='move_output')(x2)
         network = Model(input=state_input, output=[card_output, move_output])
         return network
     
@@ -83,10 +105,9 @@ class NNPolicy(Policy):
         output = np.concatenate((card_output, move_output), axis=1)
         mask = np.reshape(state.get_unplayed_cards_by_index() + state.get_legal_moves_by_index(), (1, -1))
         return (output * mask)[0].flatten()
-                
-    def forward(self, input):   
-        forward_function = K.function([self.model.input, K.learning_phase()], self.model.output)
-        return forward_function([input, 0])
+           
+    def forward(self, input):
+        return self.predict_func([input, 0])
     
     def fit(self, states, actions, won):
         """
@@ -129,6 +150,9 @@ class NNPolicy(Policy):
         if 'weights_file' in object_specs:
             model.load_weights(object_specs['weights_file'])
         return model
+    
+    def load_weights(self, weigfht_file):
+        self.model.load_weights(weigfht_file)
     
     def GreedyPlay(self, state, action):
     # action is a vector of length 19 for the Probability Distribution of playing a card to a position, so action = card + move 

@@ -58,7 +58,7 @@ def get_left_number_one_hot(state):
 
 
 def get_position(state):
-    result = np.zeros((11, 2 * gm.START_HANDS))
+    result = np.zeros((10, 2 * gm.START_HANDS))
     for i in range(2 * gm.START_HANDS):
         if i < gm.START_HANDS:
             card = state.left_cards[i]
@@ -67,10 +67,8 @@ def get_position(state):
         
         if state.on_Board(*card.position):
             result[card.position[0] + card.position[1] * gm.BOARD_SIZE, i] = 1
-        elif card.owner == gm.LEFT_PLAYER:
+        else:
             result[9, i] = 1
-        elif card.owner == gm.RIGHT_PLAYER:
-            result[10, i] = 1
     return result    
 
 def get_owner(state):
@@ -163,7 +161,7 @@ VALID_FEATURES = {
     },    
     # The position can be one of the 9 cells on the board, or in the hand of either player                                                      
     "position": {
-        "size": 11,
+        "size": 10,
         "function": get_position
     },
     # Whether the owner of the card is LEFT_PLAYER
@@ -198,7 +196,7 @@ VALID_FEATURES = {
 
 DEFAULT_FEATURES = [
     "top_number", "right_number", "bottom_number", "left_number", "position",
-    "owner", "player"] # Total dimension is 17 without one-hot encoding on the card numbers
+    "owner", "player"] # Total dimension is 16 without one-hot encoding on the card numbers
 
 def get_feature_dim(feature_list = DEFAULT_FEATURES):
     feature_dim = 0

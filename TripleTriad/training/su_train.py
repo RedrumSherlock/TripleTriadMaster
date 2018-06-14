@@ -11,15 +11,14 @@ from TripleTriad.player.NNPolicy import NNPolicy
 from TripleTriad.player.basic_policy import BaselinePolicy
 import TripleTriad.feature as fe
 import TripleTriad.game_helper as Helper
+from TripleTriad.training.mc_train import ZEROTH_FILE
 
 import numpy as np
 import os
 import random
 
-from keras.optimizers import SGD
-
-ZEROTH_FILE = "weights.00000.hdf5"
-
+from keras.optimizers import SGD, Adam
+from keras.callbacks import CSVLogger, EarlyStopping
 
 def simulate_single_game(target_policy, new_game):
     states = []
@@ -86,11 +85,12 @@ def run_training():
     parser.add_argument("out_directory", help="Path to folder where the model params and metadata will be saved after each epoch.")
     parser.add_argument("--initial-weights", help="Path to HDF5 file with inital weights.", default = ZEROTH_FILE)
     parser.add_argument("--model-json", help="JSON file for policy model in the output directory.", default = "model.json")
-    parser.add_argument("--learning-rate", help="Keras learning rate (Default: 0.05)", type=float, default=0.01)
+    parser.add_argument("--learning-rate", help="Keras learning rate (Default: 0.01)", type=float, default=0.01)
     parser.add_argument("--epoch", help="Number of epoches for training process (Default: 50)", type=int, default=50)
     parser.add_argument("--step-epoch", help="Number of step per epoch(Default: 1000)", type=int, default=1000)
-    parser.add_argument("--batch-size", help="Number of games to simulate for each batch (Default: 10)", type=int, default=10)
-    parser.add_argument("--val-steps", help="Number of steps for validation (Default: 100)", type=int, default=100)
+    parser.add_argument("--batch-size", help="Number of games to simulate for each batch (Default: 50)", type=int, default=50)
+    parser.add_argument("--val-steps", help="Number of steps for validation (Default: 1000)", type=int, default=1000)
+    parser.add_argument("--result-file", help="The file to save results as csv )", default="result.csv")
     parser.add_argument("--card-path", help="The directory with the card set file (Default: {})".format(gm.DEFAULT_PATH), default=gm.DEFAULT_PATH)
     parser.add_argument("--card-file", help="The file containing the cards to play with (Default: {})".format(gm.DEFAULT_CARDS_FILE), default=gm.DEFAULT_CARDS_FILE)
     parser.add_argument("--verbose", "-v", help="Turn on verbose mode", default=True, action="store_true")
@@ -116,6 +116,7 @@ def run_training():
         "step_epoch": args.step_epoch,
         "batch_size": args.batch_size,
         "val_steps": args.val_steps,
+        "result_file": args.result_file,
         "card_path": args.card_path,
         "card_file": args.card_file
     }
@@ -133,10 +134,14 @@ def run_training():
     train_generator = state_action_generator(target, metadata)
     validation_generator = state_action_generator(target, metadata)
     
+    csv_logger = CSVLogger(os.path.join(args.out_directory, args.result_file), append=True)
+    stopper = EarlyStopping(monitor='loss', patience=3)
+
     player.model.fit_generator(
         generator=train_generator,
         steps_per_epoch=metadata["step_epoch"],
         epochs=metadata["epoch"],
+        callbacks=[csv_logger, stopper],
         validation_data=validation_generator,
         validation_steps=metadata["val_steps"])
     

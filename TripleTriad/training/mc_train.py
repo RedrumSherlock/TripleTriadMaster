@@ -43,7 +43,7 @@ def simulate_games(player, opponent, metadata):
         
     """
     
-    states = [[] for _ in range(metadata["game_batch"])] # Feature from the game state, i.e. by default feature a 17 x 10 array
+    states = [[] for _ in range(metadata["game_batch"])] # Feature from the game state, i.e. by default feature a 16 x 10 array
     actions = [[] for _ in range(metadata["game_batch"])] # Each action should be a pair of (move, card). Move is the one-hot vector for 9 cells on the board. 
                                                           # Card is the one-hot vector for the 10 cards from left to right (must be cards not added to board yet) 
     rewards = [[] for _ in range(metadata["game_batch"])] # Either player has won (1), tied (0), or lost (-1)
@@ -91,10 +91,10 @@ def run_training(cmd_line_args=None):
     parser.add_argument("--model-json", help="JSON file for policy model in the output directory.", default = "model.json")
     parser.add_argument("--initial-weights", help="Path to HDF5 file with inital weights (i.e. result of supervised training).", default = ZEROTH_FILE)
     parser.add_argument("--learning-rate", help="Keras learning rate (Default: 0.001)", type=float, default=0.001)
-    parser.add_argument("--save-every", help="Save policy as a new opponent every n batches (Default: 500)", type=int, default=500)
-    parser.add_argument("--record-every", help="Save learner's weights every n batches (Default: 1)", type=int, default=1)
-    parser.add_argument("--game-batch", help="Number of games per mini-batch (Default: 200)", type=int, default=1000)
-    parser.add_argument("--iterations", help="Number of training batches/iterations (Default: 1000)", type=int, default=500)
+    parser.add_argument("--save-every", help="Save policy as a new opponent every n batches (Default: 10)", type=int, default=10)
+    parser.add_argument("--record-every", help="Save learner's weights every n batches (Default: 10)", type=int, default=10)
+    parser.add_argument("--game-batch", help="Number of games per mini-batch (Default: 50)", type=int, default=50)
+    parser.add_argument("--iterations", help="Number of training batches/iterations (Default: 1000)", type=int, default=1000)
     parser.add_argument("--card-path", help="The directory with the card set file (Default: {})".format(gm.DEFAULT_PATH), default=gm.DEFAULT_PATH)
     parser.add_argument("--card-file", help="The file containing the cards to play with (Default: {})".format(gm.DEFAULT_CARDS_FILE), default=gm.DEFAULT_CARDS_FILE)
     parser.add_argument("--verbose", "-v", help="Turn on verbose mode", default=True, action="store_true")
@@ -117,10 +117,8 @@ def run_training(cmd_line_args=None):
     if not os.path.exists(os.path.join(args.card_path, args.card_file)):
         raise ValueError("Cannot resume without card file {} in the directory {}".format(args.card_file, args.card_path))
             
-                
-    if not args.resume:
-        # starting the game from scratch
-        metadata = {
+    
+    metadata = {
             "out_directory": args.out_directory,
             "model_file": args.model_json,
             "init_weights": args.initial_weights,
@@ -132,6 +130,9 @@ def run_training(cmd_line_args=None):
             "opponents": [ZEROTH_FILE],  # which weights from which to sample an opponent each batch
             "num_wins": {}  # number of wins for player in each batch
         }
+                 
+    if not args.resume:
+        # starting the game from scratch
         player_weights = ZEROTH_FILE
         iter_start = 1
         player = NNPolicy(model_save_path = os.path.join(args.out_directory, args.model_json))
@@ -144,16 +145,15 @@ def run_training(cmd_line_args=None):
         if not os.path.exists(os.path.join(args.out_directory, "metadata.json")):
             raise ValueError("Cannot resume without metadata.json file in the output directory")
         with open(os.path.join(args.out_directory, "metadata.json"), "r") as f:
-            metadata = json.load(f)
+            old_metadata = json.load(f)
+        
+        # Merge the metadata in case any parameter changed
+        metadata = {**old_metadata, **metadata}    
         
         # Load the model    
-        if not os.path.exists(args.model_json):
+        if not os.path.exists(os.path.join(args.out_directory, args.model_json)):
             raise ValueError("Cannot resume without model json file in the output directory")
         args.model_json = os.path.join(args.out_directory, os.path.basename(args.model_json))
-        with open(args.model_json, 'r') as f:
-            object_specs = json.load(f)
-        if 'weights_file' in object_specs and not os.path.exists(os.path.join(args.out_directory, os.path.basename(object_specs['weights_file']))):
-            raise ValueError("The weight file {} specified by the model json file is not existing in the output directory".format(os.path.basename(object_specs['weights_file'])))                                        
         
         if args.verbose:
             print("Resuming with model {}".format(args.model_json))
@@ -215,6 +215,8 @@ def run_training(cmd_line_args=None):
         if i_iter % args.save_every == 0:
             metadata["opponents"].append(player_weights)
         Helper.save_metadata(metadata, args.out_directory, "metadata.json")
+        
+        
 
 
 if __name__ == '__main__':
