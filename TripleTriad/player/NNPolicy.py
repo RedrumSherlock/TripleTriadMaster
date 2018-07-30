@@ -109,7 +109,7 @@ class NNPolicy(Policy):
     def forward(self, input):
         return self.predict_func([input, 0])
     
-    def fit(self, states, actions, won):
+    def fit(self, states, card_actions, move_actions, won):
         """
         The fit method will update the policy by a batch of simulated experiences
         Args: 
@@ -119,7 +119,7 @@ class NNPolicy(Policy):
         """
         self.model.optimizer.lr = K.abs(self.model.optimizer.lr) * (+1 if won else -1)
         # TODO: update to fit with epochs 
-        self.model.train_on_batch(states, actions)
+        self.model.train_on_batch(states, [card_actions, move_actions])
         
     def save_model(self, weights_file=None):
         """write the network model and preprocessing features to the specified file

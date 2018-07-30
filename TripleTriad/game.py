@@ -25,7 +25,7 @@ BOARD_SIZE = 3
 
 # the default cardset for both players
 DEFAULT_PATH = "test_cards"
-DEFAULT_CARDS_FILE = "cards.csv"
+DEFAULT_CARDS_FILE = "10_cards.csv"
 
 # Check the detail of rules at http://ffxivtriad.com/rules. Right now only the all open rule is implemented
 rule_list = [
@@ -315,6 +315,10 @@ class Card(object):
         self.owner = owner
         self.position = position
 
+    def clone(self):
+        new_card = Card(self.numbers, self.owner, self.visible, self.position, self.name, self.rank, self.element)
+        return new_card
+        
 
 
      

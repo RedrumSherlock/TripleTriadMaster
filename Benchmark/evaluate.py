@@ -22,7 +22,7 @@ def evaluate_nn_policy():
     parser.add_argument("--metadata-file", help="The meta data file to be loaded", default="su_metadata.json")
     parser.add_argument("--weight-file", help="The weight file to be loaded to the model", default=ZEROTH_FILE)
     parser.add_argument("--plot", help="Plot the evaluation results", default=True, action="store_true")
-    parser.add_argument("--num-games", help="Number of games to play for evaluation", type=int, default=1000)
+    parser.add_argument("--num-games", help="Number of games to play for evaluation", type=int, default=10000)
     parser.add_argument("--card-path", help="The directory with the card set file (Default: {})".format(gm.DEFAULT_PATH), default=gm.DEFAULT_PATH)
     parser.add_argument("--card-file", help="The file containing the cards to play with (Default: {})".format(gm.DEFAULT_CARDS_FILE), default=gm.DEFAULT_CARDS_FILE)
     parser.add_argument("--verbose", "-v", help="Turn on verbose mode", default=True, action="store_true")

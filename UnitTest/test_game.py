@@ -23,15 +23,15 @@ class TestGame(unittest.TestCase):
         
     def test_random_games(self):
         
-        default_left_cards = GameState.load_cards_from_file("test_cards", "cards.csv")
-        default_right_cards = GameState.load_cards_from_file("test_cards", "cards.csv")
+        card_pool = GameState.load_cards_from_file("test_cards", "10_cards.csv")
+        default_cards = random.sample(card_pool, 5)
         
         winner = []
         player = RandomPolicy()
         iter = 10000
         for _ in range(iter):
-            left_cards = random.sample(default_left_cards, 5)
-            right_cards = random.sample(default_right_cards, 5)
+            left_cards = [card.clone() for card in default_cards]
+            right_cards = [card.clone() for card in default_cards]
             
             for card in left_cards + right_cards:
                 card.reset()

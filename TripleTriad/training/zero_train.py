@@ -58,12 +58,12 @@ def simulate_games(player, opponent, metadata):
     
     # Learner is always the left player, and the opponent picked from the pool is always the right player
     # Game will start randomly by left or right player by a 50/50
-    card_pool = gm.GameState.load_cards_from_file(metadata["card_path"], metadata["card_file"])
+    left_card_file = gm.GameState.load_cards_from_file(metadata["card_path"], metadata["card_file"])
+    right_card_file = gm.GameState.load_cards_from_file(metadata["card_path"], metadata["card_file"])
     
     for i in range(metadata["game_batch"]):
-        default_cards = random.sample(card_pool, gm.START_HANDS)
-        left_cards = [card.clone() for card in default_cards]
-        right_cards = [card.clone() for card in default_cards]
+        left_cards = random.sample(left_card_file, gm.START_HANDS)
+        right_cards = random.sample(right_card_file, gm.START_HANDS)
             
         new_game = gm.GameState(left_cards = left_cards, right_cards = right_cards)
         
@@ -75,11 +75,12 @@ def simulate_games(player, opponent, metadata):
                 (card_vector, move_vector) = player.action_to_vector(new_game, card, move)
                 card_actions[i].append(np.expand_dims(card_vector, axis=0))
                 move_actions[i].append(np.expand_dims(move_vector, axis=0))
+                rewards[i].append(1)
             else:
                 (card, move) = opponent.get_action(new_game)
             new_game.play_round(card, *move)
         
-        rewards[i] = new_game.get_winner() # treat the loss and tie as the same since we only want to win
+        rewards[i] = int(new_game.get_winner() == gm.LEFT_PLAYER) # I treat the loss and tie as the same
         
     return (states, card_actions, move_actions, rewards)
 
@@ -88,7 +89,7 @@ def train_on_batch(policy, states, card_actions, move_actions, rewards):
         policy.fit(np.concatenate(state, axis=0), 
                    np.concatenate(card_action, axis=0), 
                    np.concatenate(move_action, axis=0), 
-                   result == 1)
+                   result[0] == 1)
 
 def train_on_result(policy, states, card_actions, move_actions, rewards):
     won_tuples = [(state, card, move, won) for (game_state, game_card, game_move, game_won) in zip(states, card_actions, move_actions, rewards) \
@@ -121,7 +122,6 @@ def run_training(cmd_line_args=None):
     parser.add_argument("--record-every", help="Save learner's weights every n batches (Default: 100)", type=int, default=100)
     parser.add_argument("--game-batch", help="Number of games per mini-batch (Default: 50)", type=int, default=50)
     parser.add_argument("--iterations", help="Number of training batches/iterations (Default: 50000)", type=int, default=5000)
-    parser.add_argument("--pool-size", help="Size of the games pool (Default: 5000)", type=int, default=5000)
     parser.add_argument("--card-path", help="The directory with the card set file (Default: {})".format(gm.DEFAULT_PATH), default=gm.DEFAULT_PATH)
     parser.add_argument("--card-file", help="The file containing the cards to play with (Default: {})".format(gm.DEFAULT_CARDS_FILE), default=gm.DEFAULT_CARDS_FILE)
     parser.add_argument("--verbose", "-v", help="Turn on verbose mode", default=True, action="store_true")
@@ -152,7 +152,6 @@ def run_training(cmd_line_args=None):
             "learning_rate": args.learning_rate,
             "game_batch": args.game_batch,
             "save_every": args.save_every,
-            "poo_size": args.pool_size,
             "card_path": args.card_path,
             "card_file": args.card_file,
             "opponents": [ZEROTH_FILE],  # which weights from which to sample an opponent each batch
@@ -216,7 +215,8 @@ def run_training(cmd_line_args=None):
     optimizer = SGD(lr=args.learning_rate)
     player.model.compile(loss=log_loss, optimizer=optimizer)
     
-    # game_pool = []
+    game_pool = []
+    LIMIT = 5000
     
     for i_iter in range(iter_start, args.iterations + 1):
         # Note that player_weights will only be saved as a file every args.record_every iterations.
@@ -235,20 +235,14 @@ def run_training(cmd_line_args=None):
         # Run games (and learn from results)
         (states, card_actions, move_actions, rewards) = simulate_games(player, opponent, metadata)
         
-        '''
         game_pool = game_pool + list(zip((states, card_actions, move_actions, rewards)))
         
-        if len(game_pool) > metadata["pool_size"]:
+        if len(game_pool) > LIMIT:
             random.shuffle(game_pool)
-            game_pool = game_pool[metadata["game_batch"]:]
             train_on_batch()
-        elif args.verbose:
-            print("Skipped Training Due to insufficient training samples")
-        ''' 
-            
-        train_on_batch(player, states, card_actions, move_actions, rewards)
-        games_won = sum(reward == 1 for reward in rewards)
-        games_lost = sum(reward == -1 for reward in rewards)
+        #train_on_batch(player, states, card_actions, move_actions, rewards)
+        games_won = sum(reward[0] == 1 for reward in rewards)
+        games_lost = sum(reward[0] == -1 for reward in rewards)
         if args.verbose:
             print("In iteration {} winrate is {}, loserate is {} against opponent {}".format(i_iter,\
                                                                     round(games_won / metadata["game_batch"], 2), \
