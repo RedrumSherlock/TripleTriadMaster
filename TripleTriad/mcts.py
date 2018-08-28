@@ -1,220 +1,288 @@
-"""Monte Carlo Tree Search, as described in Silver et al 2015.
-
-This is a "pure" implementation of the AlphaGo MCTS algorithm in that it is not specific to the
-game of Go; everything in this file is implemented generically with respect to some state, actions,
-policy function, and value function.
-"""
 import numpy as np
-from operator import itemgetter
+import torch
+import threading
+import time
+import random
+from collections import OrderedDict
+from numba import jit
+from copy import deepcopy
+from lib.utils import _prepare_state, sample_rotation
 
 
-class TreeNode(object):
-    """A node in the MCTS tree. Each node keeps track of its own value Q, prior probability P, and
-    its visit-count-adjusted prior score u.
-    """
+MCTS_SIM = 64 # Number of MCTS simulation
+C_PUCT = 0.2 # Exploration constant
+MCTS_PARALLEL = 4 # MCTS parallel
+EPS = 0.25 # Epsilon for Dirichlet noise
+ALPHA = 0.03 # Alpha for Dirichlet noise
 
-    def __init__(self, parent, prior_p):
-        self._parent = parent
-        self._children = {}  # a map from action to TreeNode
-        self._n_visits = 0
-        self._Q = 0
-        # This value for u will be overwritten in the first call to update(), but is useful for
-        # choosing the first action from this node.
-        self._u = prior_p
-        self._P = prior_p
+@jit
+def _opt_select(nodes, c_puct=C_PUCT):
+    """ Optimized version of the selection based of the PUCT formula """
 
-    def expand(self, action_priors):
-        """Expand tree by creating new children.
+    total_count = 0
+    for i in range(nodes.shape[0]):
+        total_count += nodes[i][1]
+    
+    action_scores = np.zeros(nodes.shape[0])
+    for i in range(nodes.shape[0]):
+        action_scores[i] = nodes[i][0] + c_puct * nodes[i][2] * \
+                (np.sqrt(total_count) / (1 + nodes[i][1]))
+    
+    equals = np.where(action_scores == np.max(action_scores))[0]
+    if equals.shape[0] > 0:
+        return np.random.choice(equals)
+    return equals[0]
 
-        Arguments:
-        action_priors -- output from policy function - a list of tuples of actions and their prior
-            probability according to the policy function.
 
-        Returns:
-        None
+def dirichlet_noise(probas):
+    """ Add Dirichlet noise in the root node """
+
+    dim = (probas.shape[0],)
+    new_probas = (1 - EPS) * probas + \
+                    EPS * np.random.dirichlet(np.full(dim, ALPHA))
+    return new_probas
+
+
+class Node:
+
+    def __init__(self, parent=None, proba=None, move=None):
         """
-        for action, prob in action_priors:
-            if action not in self._children:
-                self._children[action] = TreeNode(self, prob)
-
-    def select(self):
-        """Select action among children that gives maximum action value, Q plus bonus u(P).
-
-        Returns:
-        A tuple of (action, next_node)
+        p : probability of reaching that node, given by the policy net
+        n : number of time this node has been visited during simulations
+        w : total action value, given by the value network
+        q : mean action value (w / n)
         """
-        return max(self._children.iteritems(), key=lambda act_node: act_node[1].get_value())
 
-    def update(self, leaf_value, c_puct):
-        """Update node values from leaf evaluation.
+        self.p = proba
+        self.n = 0
+        self.w = 0
+        self.q = 0
+        self.childrens = []
+        self.parent = parent
+        self.move = move
+    
 
-        Arguments:
-        leaf_value -- the value of subtree evaluation from the current player's perspective.
-        c_puct -- a number in (0, inf) controlling the relative impact of values, Q, and
-            prior probability, P, on this node's score.
+    def update(self, v):
+        """ Update the node statistics after a playout """
 
-        Returns:
-        None
-        """
-        # Count visit.
-        self._n_visits += 1
-        # Update Q, a running average of values for all visits.
-        self._Q += (leaf_value - self._Q) / self._n_visits
-        # Update u, the prior weighted by an exploration hyperparameter c_puct and the number of
-        # visits. Note that u is not normalized to be a distribution.
-        if not self.is_root():
-            self._u = c_puct * self._P * np.sqrt(self._parent._n_visits) / (1 + self._n_visits)
+        self.w = self.w + v
+        self.q = self.w / self.n if self.n > 0 else 0
 
-    def update_recursive(self, leaf_value, c_puct):
-        """Like a call to update(), but applied recursively for all ancestors.
-
-        Note: it is important that this happens from the root downward so that 'parent' visit
-        counts are correct.
-        """
-        # If it is not root, this node's parent should be updated first.
-        if self._parent:
-            self._parent.update_recursive(leaf_value, c_puct)
-        self.update(leaf_value, c_puct)
-
-    def get_value(self):
-        """Calculate and return the value for this node: a combination of leaf evaluations, Q, and
-        this node's prior adjusted for its visit count, u
-        """
-        return self._Q + self._u
 
     def is_leaf(self):
-        """Check if leaf node (i.e. no nodes below this have been expanded).
+        """ Check whether node is a leaf or not """
+
+        return len(self.childrens) == 0
+
+
+    def expand(self, probas):
+        """ Create a child node for every non-zero move probability """
+
+        self.childrens = [Node(parent=self, move=idx, proba=probas[idx]) \
+                    for idx in range(probas.shape[0]) if probas[idx] > 0]
+
+
+
+class EvaluatorThread(threading.Thread):
+    def __init__(self, player, eval_queue, result_queue, condition_search, condition_eval):
+        """ Used to be able to batch evaluate positions during tree search """
+
+        threading.Thread.__init__(self)
+        self.eval_queue = eval_queue
+        self.result_queue = result_queue
+        self.player = player
+        self.condition_search = condition_search
+        self.condition_eval = condition_eval
+
+
+    def run(self):
+        for sim in range(MCTS_SIM // MCTS_PARALLEL):
+
+            ## Wait for the eval_queue to be filled by new positions to evaluate
+            self.condition_search.acquire()
+            while len(self.eval_queue) < MCTS_PARALLEL:
+                self.condition_search.wait()
+            self.condition_search.release()
+
+            self.condition_eval.acquire()
+            while len(self.result_queue) < MCTS_PARALLEL:
+                keys = list(self.eval_queue.keys())
+                max_len = BATCH_SIZE_EVAL if len(keys) > BATCH_SIZE_EVAL else len(keys)
+
+                ## Predict the feature_maps, policy and value
+                states = torch.tensor(np.array(list(self.eval_queue.values()))[0:max_len],
+                            dtype=torch.float, device=DEVICE)
+                v, probas = self.player.predict(states)
+
+                ## Replace the state with the result in the eval_queue
+                ## and notify all the threads that the result are available
+                for idx, i in zip(keys, range(max_len)):
+                    del self.eval_queue[idx]
+                    self.result_queue[idx] = (probas[i].cpu().data.numpy(), v[i])
+
+                self.condition_eval.notifyAll()
+            self.condition_eval.release()
+
+
+
+class SearchThread(threading.Thread):
+
+    def __init__(self, mcts, game, eval_queue, result_queue, thread_id, lock, condition_search, condition_eval):
+        """ Run a single simulation """
+
+        threading.Thread.__init__(self)
+        self.eval_queue = eval_queue
+        self.result_queue = result_queue
+        self.mcts = mcts
+        self.game = game
+        self.lock = lock
+        self.thread_id = thread_id
+        self.condition_eval = condition_eval
+        self.condition_search = condition_search
+    
+
+    def run(self):
+        game = deepcopy(self.game)
+        state = game.state
+        current_node = self.mcts.root
+        done = False
+
+        ## Traverse the tree until leaf
+        while not current_node.is_leaf() and not done:
+            ## Select the action that maximizes the PUCT algorithm
+            current_node = current_node.childrens[_opt_select( \
+                    np.array([[node.q, node.n, node.p] \
+                    for node in current_node.childrens]))]
+
+            ## Virtual loss since multithreading
+            self.lock.acquire()
+            current_node.n += 1
+            self.lock.release()
+
+            state, _, done = game.step(current_node.move)
+
+        if not done:
+
+            ## Add current leaf state with random dihedral transformation
+            ## to the evaluation queue
+            self.condition_search.acquire()
+            self.eval_queue[self.thread_id] = sample_rotation(state, num=1)
+            self.condition_search.notify()
+            self.condition_search.release()
+
+            ## Wait for the evaluator to be done
+            self.condition_eval.acquire()
+            while self.thread_id not in self.result_queue.keys():
+                self.condition_eval.wait()
+
+            ## Copy the result to avoid GPU memory leak
+            result = self.result_queue.pop(self.thread_id)
+            probas = np.array(result[0])
+            v = float(result[1])
+            self.condition_eval.release()
+
+            ## Add noise in the root node
+            if not current_node.parent:
+                probas = dirichlet_noise(probas)
+            
+            ## Modify probability vector depending on valid moves
+            ## and normalize after that
+            valid_moves = game.get_legal_moves()
+            illegal_moves = np.setdiff1d(np.arange(game.board_size ** 2 + 1),
+                                        np.array(valid_moves))
+            probas[illegal_moves] = 0
+            total = np.sum(probas)
+            probas /= total
+
+            ## Create the child nodes for the current leaf
+            self.lock.acquire()
+            current_node.expand(probas)
+
+            ## Backpropagate the result of the simulation
+            while current_node.parent:
+                current_node.update(v)
+                current_node = current_node.parent
+            self.lock.release()
+
+
+
+class MCTS:
+    def __init__(self):
+        self.root = Node()
+
+
+    def _draw_move(self, action_scores, competitive=False):
         """
-        return self._children == {}
-
-    def is_root(self):
-        return self._parent is None
-
-
-class MCTS(object):
-    """A simple (and slow) single-threaded implementation of Monte Carlo Tree Search.
-
-    Search works by exploring moves randomly according to the given policy up to a certain
-    depth, which is relatively small given the search space. "Leaves" at this depth are assigned a
-    value comprising a weighted combination of (1) the value function evaluated at that leaf, and
-    (2) the result of finishing the game from that leaf according to the 'rollout' policy. The
-    probability of revisiting a node changes over the course of the many playouts according to its
-    estimated value. Ultimately the most visited node is returned as the next action, not the most
-    valued node.
-
-    The term "playout" refers to a single search from the root, whereas "rollout" refers to the
-    fast evaluation from leaf nodes to the end of the game.
-    """
-
-    def __init__(self, value_fn, policy_fn, rollout_policy_fn, lmbda=0.5, c_puct=5,
-                 rollout_limit=500, playout_depth=20, n_playout=10000):
-        """Arguments:
-        value_fn -- a function that takes in a state and ouputs a score in [-1, 1], i.e. the
-            expected value of the end game score from the current player's perspective.
-        policy_fn -- a function that takes in a state and outputs a list of (action, probability)
-            tuples for the current player.
-        rollout_policy_fn -- a coarse, fast version of policy_fn used in the rollout phase.
-        lmbda -- controls the relative weight of the value network and fast rollout policy result
-            in determining the value of a leaf node. lmbda must be in [0, 1], where 0 means use only
-            the value network and 1 means use only the result from the rollout.
-        c_puct -- a number in (0, inf) that controls how quickly exploration converges to the
-            maximum-value policy, where a higher value means relying on the prior more, and
-            should be used only in conjunction with a large value for n_playout.
+        Find the best move, either deterministically for competitive play
+        or stochiasticly according to some temperature constant
         """
-        self._root = TreeNode(None, 1.0)
-        self._value = value_fn
-        self._policy = policy_fn
-        self._rollout = rollout_policy_fn
-        self._lmbda = lmbda
-        self._c_puct = c_puct
-        self._rollout_limit = rollout_limit
-        self._L = playout_depth
-        self._n_playout = n_playout
 
-    def _playout(self, state, leaf_depth):
-        """Run a single playout from the root to the given depth, getting a value at the leaf and
-        propagating it back through its parents. State is modified in-place, so a copy must be
-        provided.
+        if competitive:
+            moves = np.where(action_scores == np.max(action_scores))[0]
+            move = np.random.choice(moves)
+            total = np.sum(action_scores)
+            probas = action_scores / total
 
-        Arguments:
-        state -- a copy of the state.
-        leaf_depth -- after this many moves, leaves are evaluated.
+        else:
+            total = np.sum(action_scores)
+            probas = action_scores / total
+            move = np.random.choice(action_scores.shape[0], p=probas)
 
-        Returns:
-        None
-        """
-        node = self._root
-        for i in range(leaf_depth):
-            # Only expand node if it has not already been done. Existing nodes already know their
-            # prior.
-            if node.is_leaf():
-                action_probs = self._policy(state)
-                # Check for end of game.
-                if len(action_probs) == 0:
-                    break
-                node.expand(action_probs)
-            # Greedily select next move.
-            action, node = node.select()
-            state.do_move(action)
+        return move, probas
 
-        # Evaluate the leaf using a weighted combination of the value network, v, and the game's
-        # winner, z, according to the rollout policy. If lmbda is equal to 0 or 1, only one of
-        # these contributes and the other may be skipped. Both v and z are from the perspective
-        # of the current player (+1 is good, -1 is bad).
-        v = self._value(state) if self._lmbda < 1 else 0
-        z = self._evaluate_rollout(state, self._rollout_limit) if self._lmbda > 0 else 0
-        leaf_value = (1 - self._lmbda) * v + self._lmbda * z
 
-        # Update value and visit count of nodes in this traversal.
-        node.update_recursive(leaf_value, self._c_puct)
+    def advance(self, move):
+        """ Manually advance in the tree, used for GTP """
 
-    def _evaluate_rollout(self, state, limit):
-        """Use the rollout policy to play until the end of the game, returning +1 if the current
-        player wins, -1 if the opponent wins, and 0 if it is a tie.
-        """
-        player = state.get_current_player()
-        for i in range(limit):
-            action_probs = self._rollout(state)
-            if len(action_probs) == 0:
+        for idx in range(len(self.root.childrens)):
+            if self.root.childrens[idx].move == move:
+                final_idx = idx
                 break
-            max_action = max(action_probs, key=itemgetter(1))[0]
-            state.do_move(max_action)
-        else:
-            # If no break from the loop, issue a warning.
-            print("WARNING: rollout reached move limit")
-        winner = state.get_winner()
-        if winner == 0:
-            return 0
-        else:
-            return 1 if winner == player else -1
+        self.root = self.root.childrens[final_idx]
 
-    def get_move(self, state):
-        """Runs all playouts sequentially and returns the most visited action.
 
-        Arguments:
-        state -- the current state, including both game state and the current player.
-
-        Returns:
-        the selected action
+    def search(self, current_game, player, competitive=False):
         """
-        for n in range(self._n_playout):
-            state_copy = state.copy()
-            self._playout(state_copy, self._L)
-
-        # chosen action is the *most visited child*, not the highest-value one
-        # (they are the same as self._n_playout gets large).
-        return max(self._root._children.iteritems(), key=lambda act_node: act_node[1]._n_visits)[0]
-
-    def update_with_move(self, last_move):
-        """Step forward in the tree, keeping everything we already know about the subtree, assuming
-        that get_move() has been called already. Siblings of the new root will be garbage-collected.
+        Search the best moves through the game tree with
+        the policy and value network to update node statistics
         """
-        if last_move in self._root._children:
-            self._root = self._root._children[last_move]
-            self._root._parent = None
-        else:
-            self._root = TreeNode(None, 1.0)
+
+        ## Locking for thread synchronization
+        condition_eval = threading.Condition()
+        condition_search = threading.Condition()
+        lock = threading.Lock()
+
+        ## Single thread for the evaluator (for now)
+        eval_queue = OrderedDict()
+        result_queue = {}
+        evaluator = EvaluatorThread(player, eval_queue, result_queue, condition_search, condition_eval)
+        evaluator.start()
+
+        threads = []
+        ## Do exactly the required number of simulation per thread
+        for sim in range(MCTS_SIM // MCTS_PARALLEL):
+            for idx in range(MCTS_PARALLEL):
+                threads.append(SearchThread(self, current_game, eval_queue, result_queue, idx, 
+                                        lock, condition_search, condition_eval))
+                threads[-1].start()
+            for thread in threads:
+                thread.join()
+        evaluator.join()
+
+        ## Create the visit count vector
+        action_scores = np.zeros((current_game.board_size ** 2 + 1,))
+        for node in self.root.childrens:
+            action_scores[node.move] = node.n
+
+        ## Pick the best move
+        final_move, final_probas = self._draw_move(action_scores, competitive=competitive)
+
+        ## Advance the root to keep the statistics of the childrens
+        for idx in range(len(self.root.childrens)):
+            if self.root.childrens[idx].move == final_move:
+                break
+        self.root = self.root.childrens[idx]
+
+        return final_probas, final_move
 
 
-class ParallelMCTS(MCTS):
-    pass

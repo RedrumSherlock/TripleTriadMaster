@@ -78,9 +78,9 @@ class NNPolicy(Policy):
         
         x1 = Bias()(x)
         x2 = Bias()(x)
-        card_output = Dense(2 * gm.START_HANDS, activation=self.params["output_activation"], name='card_output')(x1)
-        move_output = Dense(gm.BOARD_SIZE ** 2, activation=self.params["output_activation"], name='move_output')(x2)
-        network = Model(input=state_input, output=[card_output, move_output])
+        policy_output = Dense(2 * gm.START_HANDS + gm.BOARD_SIZE ** 2, activation=self.params["output_activation"], name='policy_output')(x1)
+        value_output = Dense(1, name='value_output')(x2)
+        network = Model(input=state_input, output=[policy_output, value_output])
         return network
     
     def print_network(self):
